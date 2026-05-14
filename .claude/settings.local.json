@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/asa7k/OneDrive/デスクトップ/claude code tutorial/**)",
+      "Bash(npx create-next-app@latest test_vote_app --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\")"
+    ]
+  }
+}
