@@ -24,3 +24,79 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 結果確定時：セグメント全体がふわっと明るくなるグロウパルス */
+@keyframes reveal-glow {
+  0%   { filter: brightness(1); }
+  40%  { filter: brightness(1.5) saturate(1.4); } /* 一瞬眩しく光る */
+  100% { filter: brightness(1) saturate(1); }
+}
+
+/* 結果確定時：光の帯が左から右へ走るシャインスウィープ */
+@keyframes shine-sweep {
+  0%   { transform: translateX(-120%) skewX(-20deg); opacity: 1; }
+  100% { transform: translateX(300%) skewX(-20deg); opacity: 0.5; }
+}
+
+/* グロウ：バー全体に適用（確定直後に一瞬輝く） */
+.reveal-glow {
+  animation: reveal-glow 0.9s ease-out forwards;
+  animation-delay: 1.0s; /* widthが落ち着いてから光る */
+}
+
+/* シャインの光帯（セグメント内の擬似要素として使う overlay div） */
+.shine-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 100%
+  );
+  animation: shine-sweep 0.7s ease-in-out forwards;
+  animation-delay: 1.1s; /* グロウの直後に走る */
+  pointer-events: none; /* クリックイベントを通過させる */
+}
+
+/* ===== 液体エフェクト（suspenseフェーズ用） ===== */
+
+/* 液体内部の光の屈折を表現する帯が左から右へ連続で流れる */
+@keyframes liquid-shimmer-flow {
+  0%   { transform: translateX(-200%) skewX(-25deg); opacity: 0.8; }
+  100% { transform: translateX(500%) skewX(-25deg); opacity: 0.3; }
+}
+
+/* 液体バーが上下に有機的に揺れる（液体がグラスの中で波打つ感覚） */
+@keyframes liquid-bob {
+  0%,  100% { transform: translateY(0px); }
+  30%        { transform: translateY(-7px); }
+  55%        { transform: translateY(4px); }
+  80%        { transform: translateY(-3px); }
+}
+
+/* 液体の輝度が脈動する（バーが「呼吸」しているような演出） */
+@keyframes liquid-glow-pulse {
+  0%,  100% { filter: brightness(1) saturate(1.1); }
+  50%        { filter: brightness(1.25) saturate(1.5); }
+}
+
+/* 液体内部を流れる光の反射帯（suspenseフェーズの各バーに挿入する） */
+.liquid-shimmer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 35%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 100%
+  );
+  animation: liquid-shimmer-flow 3.5s linear infinite;
+  pointer-events: none;
+}
