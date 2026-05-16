@@ -115,11 +115,11 @@ export default function PollPage() {
 
     const tick = () => {
       const progress = elapsed / TOTAL_MS
-      // 0→70%: sin波で100〜300msを行き来しながら加速・減速を繰り返す
-      // 70→100%: 徐々に800msまで減速して止まる
-      const interval = progress < 0.7
+      // 0→80%: sin波で100〜300msを行き来しながら加速・減速を繰り返す
+      // 80→100%: 30msまで一気に加速して爆速で終わる
+      const interval = progress < 0.8
         ? 100 + 100 * Math.abs(Math.sin(progress * Math.PI * 5))
-        : 150 + (800 - 150) * ((progress - 0.7) / 0.3)
+        : 100 - (100 - 30) * ((progress - 0.8) / 0.2)
 
       intervalRef.current = setTimeout(() => {
         elapsed += interval
