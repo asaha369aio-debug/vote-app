@@ -100,7 +100,7 @@ export default function EditPoll() {
     await Promise.all(existingUpdates.map((o) => supabase.from('poll_options').update({ text: o.text.trim() }).eq('id', o.id!)))
     const newOptions = validOptions.filter((o) => o.id === null)
     if (newOptions.length > 0) await supabase.from('poll_options').insert(newOptions.map((o) => ({ poll_id: id, text: o.text.trim() })))
-    router.push('/')
+    router.push('/vote')
   }
 
   if (initialLoading) {
@@ -115,7 +115,7 @@ export default function EditPoll() {
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
+          <Link href="/vote" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
           <span className="text-black/40 font-bold">|</span>
           <h1 className="text-xl font-black text-black">投票を編集</h1>
         </div>

@@ -21,7 +21,7 @@ export default function AdminLogin() {
     })
     if (res.ok) {
       localStorage.setItem('isAdmin', '1')
-      router.push('/')
+      router.push('/vote')
     } else {
       setError(true)
     }
@@ -62,7 +62,7 @@ export default function AdminLogin() {
           </form>
         </div>
         <div className="text-center mt-4">
-          <Link href="/" className="text-sm font-bold text-black hover:opacity-60 transition-opacity">← 投票一覧に戻る</Link>
+          <Link href="/vote" className="text-sm font-bold text-black hover:opacity-60 transition-opacity">← 投票一覧に戻る</Link>
         </div>
       </div>
     </div>
