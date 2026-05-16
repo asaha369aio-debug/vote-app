@@ -162,14 +162,23 @@ export default function KattenPage() {
                 解除
               </button>
               {users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => selectUser(u.name)}
-                  style={{ background: currentSelected === u.name ? '#ff2200' : '#fff', color: currentSelected === u.name ? '#fff' : '#000', border: '2px solid #000', padding: '6px 16px' }}
-                  className="font-black text-sm hover:opacity-70"
-                >
-                  {u.name}
-                </button>
+                <div key={u.id} className="flex items-center">
+                  <button
+                    onClick={() => selectUser(u.name)}
+                    style={{ background: currentSelected === u.name ? '#ff2200' : '#fff', color: currentSelected === u.name ? '#fff' : '#000', border: '2px solid #000', borderRight: 'none', padding: '6px 16px' }}
+                    className="font-black text-sm hover:opacity-70"
+                  >
+                    {u.name}
+                  </button>
+                  <button
+                    onClick={() => removeUser(u.id)}
+                    style={{ background: '#000', color: '#ffe600', border: '2px solid #000', padding: '6px 8px' }}
+                    className="font-black text-xs hover:opacity-70"
+                    title="削除"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
             <p className="text-xs mt-3" style={{ color: '#888' }}>同じ人を連続して選ぶ場合は一度「解除」してから再選択してください</p>
