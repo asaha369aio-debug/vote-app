@@ -156,8 +156,8 @@ export default function PollPage() {
               const color = BAR_COLORS[i % BAR_COLORS.length]
               return (
                 <div key={opt.id} className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
-                  <p className="font-black text-white text-2xl leading-tight truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                  <p className="font-black text-white text-4xl" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{percent}%</p>
+                  <p className="font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                  <p className="font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
                 </div>
               )
             })}
