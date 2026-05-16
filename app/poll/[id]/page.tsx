@@ -110,7 +110,7 @@ export default function PollPage() {
     let elapsed = 0
     intervalRef.current = setInterval(() => {
       elapsed += INTERVAL_MS
-      const slowingDown = !fast && elapsed > TOTAL_DURATION - 1500
+      const slowingDown = elapsed > TOTAL_DURATION - 1500
       if (slowingDown && elapsed % (INTERVAL_MS * 2) !== 0) return
       if (elapsed >= TOTAL_DURATION) {
         clearInterval(intervalRef.current!); intervalRef.current = null
@@ -132,6 +132,7 @@ export default function PollPage() {
   // ===== グラフ表示モード（結果発表）=====
   if (isAdmin && phase !== 'hidden') {
     return (
+      <>
       <div className="min-h-screen flex flex-col" style={{ background: '#111111' }}>
         <div className="px-8 py-5 flex items-center justify-between" style={{ borderBottom: '3px solid #ffe600' }}>
           <h1 className="text-xl font-black" style={{ color: '#ffe600' }}>{poll.question}</h1>
@@ -223,6 +224,7 @@ export default function PollPage() {
         />
         <span className="text-xs font-black" style={{ color: '#ffe600' }}>秒</span>
       </div>
+      </>
     )
   }
 
