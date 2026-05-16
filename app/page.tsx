@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 const VOTER_NAME_KEY = 'voterName'
 const SITE_AUTH_KEY = 'siteAuth'
@@ -25,16 +25,19 @@ const inputStyle: React.CSSProperties = {
   padding: '12px 16px', color: th.inputText, fontSize: '1rem', textAlign: 'center', outline: 'none',
 }
 
-// 機能カード定義
+// 全機能の定義（keyはfeature_flagsのkeyと対応）
 const FEATURES = [
-  { href: '/vote', icon: '🗳️', label: '投票', desc: 'リアルタイムで投票・集計', active: true, accent: '#ff2200' },
-  { href: '/katten', icon: '📊', label: '加点', desc: '対象を選んでリアルタイム加点', active: true, accent: '#0033cc' },
-  { href: '#',    icon: '🎯', label: 'ゲーム',    desc: '準備中', active: false, accent: '#00aa44' },
-  { href: '#',    icon: '📝', label: 'メモ',      desc: '準備中', active: false, accent: '#ff6600' },
+  { key: 'vote',   href: '/vote',   icon: '🗳️', label: '投票', desc: 'リアルタイムで投票・集計',       accent: '#ff2200' },
+  { key: 'katten', href: '/katten', icon: '📊', label: '加点', desc: '対象を選んでリアルタイム加点', accent: '#0033cc' },
+  { key: 'game',   href: '#',       icon: '🎯', label: 'ゲーム', desc: '準備中',                      accent: '#00aa44' },
+  { key: 'memo',   href: '#',       icon: '📝', label: 'メモ',   desc: '準備中',                      accent: '#ff6600' },
 ]
 
+// 管理者がオン/オフできる機能キー
+const TOGGLEABLE_KEYS = ['vote', 'katten']
+
 export default function Home() {
-  const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
   const [voterName, setVoterName] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
   const [nameLoaded, setNameLoaded] = useState(false)
@@ -45,14 +48,38 @@ export default function Home() {
   const [sitePasswordError, setSitePasswordError] = useState(false)
   const [sitePasswordLoading, setSitePasswordLoading] = useState(false)
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
+  const [flags, setFlags] = useState<Record<string, boolean>>({})  // 機能の表示フラグ
 
   useEffect(() => {
     const authed = sessionStorage.getItem(SITE_AUTH_KEY) === '1'
     setSiteAuthed(authed)
     const savedName = localStorage.getItem(VOTER_NAME_KEY)
     setVoterName(savedName)
+    setIsAdmin(localStorage.getItem('isAdmin') === '1')
     setNameLoaded(true)
+
+    // 機能フラグを取得
+    supabase.from('feature_flags').select('key, enabled')
+      .then(({ data }) => {
+        const map: Record<string, boolean> = {}
+        data?.forEach((r) => { map[r.key] = r.enabled })
+        setFlags(map)
+      })
+
+    // リアルタイムでフラグ変更を反映
+    const ch = supabase.channel('feature-flags')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feature_flags' }, (payload) => {
+        setFlags((prev) => ({ ...prev, [payload.new.key]: payload.new.enabled }))
+      }).subscribe()
+
+    return () => { supabase.removeChannel(ch) }
   }, [])
+
+  const toggleFlag = async (key: string) => {
+    const next = !flags[key]
+    setFlags((prev) => ({ ...prev, [key]: next }))
+    await supabase.from('feature_flags').update({ enabled: next }).eq('key', key)
+  }
 
   const handleSitePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setSitePasswordLoading(true); setSitePasswordError(false)
@@ -113,10 +140,15 @@ export default function Home() {
     )
   }
 
+  // 表示する機能（enabled=trueのもの、または管理者は全て見える）
+  const visibleFeatures = FEATURES.filter((f) => {
+    if (!TOGGLEABLE_KEYS.includes(f.key)) return true  // 準備中は常に表示
+    return isAdmin || flags[f.key] !== false
+  })
+
   // ===== 機能選択画面 =====
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
-      {/* ヘッダー */}
       <header style={{ background: th.pageBg, borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
           <Image src="/qol_logo.png" alt="QOL" width={120} height={40} style={{ objectFit: 'contain' }} priority />
@@ -136,33 +168,73 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 機能カード一覧 */}
-      <main className="max-w-2xl mx-auto px-6 py-8">
-        <h2 className="text-lg font-black mb-6" style={{ color: th.titleColor }}>機能を選択してください</h2>
-        <div className="space-y-3">
-          {FEATURES.map((f) => (
-            f.active ? (
-              <Link key={f.label} href={f.href}>
-                <div className="flex items-center gap-4 px-6 py-5 transition-opacity hover:opacity-80 cursor-pointer" style={{ background: th.cardBg, border: '2.5px solid #000', borderLeft: `8px solid ${f.accent}` }}>
+      <main className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+        {/* 管理者: 機能の表示/非表示コントロール */}
+        {isAdmin && (
+          <div style={{ background: '#000', border: '2.5px solid #000' }} className="p-4">
+            <p className="text-xs font-black mb-3" style={{ color: '#ffe600', letterSpacing: '0.1em' }}>🔧 管理者: 機能の表示設定</p>
+            <div className="flex gap-3">
+              {TOGGLEABLE_KEYS.map((key) => {
+                const f = FEATURES.find((f) => f.key === key)!
+                const enabled = flags[key] !== false
+                return (
+                  <button
+                    key={key}
+                    onClick={() => toggleFlag(key)}
+                    style={{
+                      background: enabled ? f.accent : '#333',
+                      color: '#fff',
+                      border: `2px solid ${enabled ? f.accent : '#555'}`,
+                      padding: '8px 20px',
+                      fontWeight: 900,
+                      fontSize: '0.9rem',
+                      transition: 'all 0.15s',
+                    }}
+                    className="hover:opacity-80"
+                  >
+                    {f.icon} {f.label}：{enabled ? '表示中' : '非表示'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 機能カード一覧 */}
+        <div>
+          <h2 className="text-lg font-black mb-4" style={{ color: th.titleColor }}>機能を選択してください</h2>
+          <div className="space-y-3">
+            {visibleFeatures.map((f) => {
+              const isActive = f.href !== '#'
+              const isEnabled = !TOGGLEABLE_KEYS.includes(f.key) || flags[f.key] !== false
+              // 管理者が非表示にしている機能はグレーアウトで表示
+              const dimmed = isAdmin && !isEnabled
+
+              return isActive && isEnabled ? (
+                <Link key={f.key} href={f.href}>
+                  <div className="flex items-center gap-4 px-6 py-5 transition-opacity hover:opacity-80 cursor-pointer" style={{ background: th.cardBg, border: '2.5px solid #000', borderLeft: `8px solid ${f.accent}` }}>
+                    <span className="text-4xl flex-shrink-0">{f.icon}</span>
+                    <div className="flex-1">
+                      <p className="text-xl font-black" style={{ color: th.titleColor }}>{f.label}</p>
+                      <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
+                    </div>
+                    <span className="text-2xl font-black" style={{ color: f.accent }}>→</span>
+                  </div>
+                </Link>
+              ) : (
+                <div key={f.key} className="flex items-center gap-4 px-6 py-5" style={{ background: th.cardBg, border: '2.5px solid #ccc', borderLeft: `8px solid #ccc`, opacity: dimmed ? 0.5 : 0.4 }}>
                   <span className="text-4xl flex-shrink-0">{f.icon}</span>
                   <div className="flex-1">
                     <p className="text-xl font-black" style={{ color: th.titleColor }}>{f.label}</p>
                     <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
                   </div>
-                  <span className="text-2xl font-black" style={{ color: f.accent }}>→</span>
+                  <span className="text-xs font-black px-2 py-1" style={{ background: '#eee', color: '#999' }}>
+                    {dimmed ? '非表示中' : '準備中'}
+                  </span>
                 </div>
-              </Link>
-            ) : (
-              <div key={f.label} className="flex items-center gap-4 px-6 py-5" style={{ background: th.cardBg, border: '2.5px solid #ccc', borderLeft: `8px solid #ccc`, opacity: 0.4 }}>
-                <span className="text-4xl flex-shrink-0">{f.icon}</span>
-                <div className="flex-1">
-                  <p className="text-xl font-black" style={{ color: th.titleColor }}>{f.label}</p>
-                  <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
-                </div>
-                <span className="text-xs font-black px-2 py-1" style={{ background: '#eee', color: '#999' }}>準備中</span>
-              </div>
-            )
-          ))}
+              )
+            })}
+          </div>
         </div>
       </main>
 
