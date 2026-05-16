@@ -17,10 +17,10 @@ export default function KattenPage() {
   const [voterName, setVoterName] = useState<string | null>(null)
   const [currentSelected, setCurrentSelected] = useState<string | null>(null)
   const [users, setUsers] = useState<KattenUser[]>([])
-  const [scores, setScores] = useState<KattenScore[]>([])
+  const [myScores, setMyScores] = useState<KattenScore[]>([])   // 自分の送信履歴
   const [newUserName, setNewUserName] = useState('')
-  const [selectedScore, setSelectedScore] = useState<number | null>(null)  // 選択中の点数
-  const [submittedFor, setSubmittedFor] = useState<string | null>(null)    // 送信済みの対象名
+  const [selectedScore, setSelectedScore] = useState<number | null>(null)
+  const [submittedFor, setSubmittedFor] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -38,20 +38,24 @@ export default function KattenPage() {
     supabase.from('katten_users').select('*').order('created_at')
       .then(({ data }) => setUsers(data ?? []))
 
-    if (admin) {
-      supabase.from('katten_scores').select('*').order('created_at', { ascending: false })
-        .then(({ data }) => setScores(data ?? []))
-    }
+    // 自分の送信履歴のみ取得
+    supabase.from('katten_scores').select('*').eq('voter_name', name).order('created_at', { ascending: false })
+      .then(({ data }) => setMyScores(data ?? []))
 
     const selChannel = supabase.channel('katten-current')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'katten_current' }, (payload) => {
-        setCurrentSelected(payload.new.selected_user ?? null)
-        setSelectedScore(null) // 対象が変わったら点数選択をリセット
+        const newSelected = payload.new.selected_user ?? null
+        setCurrentSelected(newSelected)
+        setSelectedScore(null)
+        // 解除（null）になったらロックをリセット
+        if (newSelected === null) setSubmittedFor(null)
       }).subscribe()
 
-    const scoreChannel = supabase.channel('katten-scores')
+    // 自分のスコアが追加されたらリアルタイム反映
+    const scoreChannel = supabase.channel('katten-my-scores')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'katten_scores' }, (payload) => {
-        if (admin) setScores((prev) => [payload.new as KattenScore, ...prev])
+        const s = payload.new as KattenScore
+        if (s.voter_name === name) setMyScores((prev) => [s, ...prev])
       }).subscribe()
 
     return () => {
@@ -60,22 +64,20 @@ export default function KattenPage() {
     }
   }, [])
 
-  const selectUser = async (name: string | null) => {
-    await supabase.from('katten_current').update({ selected_user: name, updated_at: new Date().toISOString() }).eq('id', 1)
+  const selectUser = async (userName: string | null) => {
+    await supabase.from('katten_current').update({ selected_user: userName, updated_at: new Date().toISOString() }).eq('id', 1)
   }
 
-  // 送信確定
   const handleSubmit = async () => {
     if (!voterName || submitting || selectedScore === null || !currentSelected) return
     setSubmitting(true)
     await supabase.from('katten_scores').insert({ score: selectedScore, selected_user: currentSelected, voter_name: voterName })
-    setSubmittedFor(currentSelected) // この対象への送信をロック
+    setSubmittedFor(currentSelected)
     setSubmitting(false)
   }
 
   const addUser = async () => {
-    const name = newUserName.trim()
-    if (!name) return
+    const name = newUserName.trim(); if (!name) return
     const { data } = await supabase.from('katten_users').insert({ name }).select().single()
     if (data) { setUsers((prev) => [...prev, data]); setNewUserName('') }
   }
@@ -85,23 +87,6 @@ export default function KattenPage() {
     setUsers((prev) => prev.filter((u) => u.id !== id))
   }
 
-  // CSV出力
-  const exportCSV = () => {
-    const header = '点数,対象,送信者,時刻'
-    const rows = scores.map((s) =>
-      `${s.score},"${s.selected_user ?? ''}","${s.voter_name ?? ''}","${new Date(s.created_at).toLocaleString('ja-JP')}"`
-    )
-    const csv = '﻿' + [header, ...rows].join('\n') // BOM付きでExcel対応
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `katten_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // 送信可否: 対象が選択済み、かつその対象にまだ送信していない
   const hasSubmitted = currentSelected !== null && submittedFor === currentSelected
   const canSubmit = currentSelected !== null && !hasSubmitted && selectedScore !== null && !submitting
 
@@ -128,11 +113,10 @@ export default function KattenPage() {
         {/* 現在の対象 */}
         <div style={{ background: '#000' }} className="px-6 py-6 text-center">
           <p className="text-xs font-black mb-2" style={{ color: '#ffe600', letterSpacing: '0.15em' }}>現在の対象</p>
-          {currentSelected ? (
-            <p className="text-4xl font-black" style={{ color: '#ffe600' }}>{currentSelected}</p>
-          ) : (
-            <p className="text-xl font-black" style={{ color: '#666' }}>未選択</p>
-          )}
+          {currentSelected
+            ? <p className="text-4xl font-black" style={{ color: '#ffe600' }}>{currentSelected}</p>
+            : <p className="text-xl font-black" style={{ color: '#666' }}>未選択</p>
+          }
         </div>
 
         {/* 管理者: 対象選択 */}
@@ -140,15 +124,26 @@ export default function KattenPage() {
           <div style={{ background: '#fff', border: '2.5px solid #000' }} className="p-5">
             <p className="text-sm font-black mb-3">対象を選択</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => selectUser(null)} style={{ background: currentSelected === null ? '#000' : '#fff', color: currentSelected === null ? '#ffe600' : '#000', border: '2px solid #000', padding: '6px 16px' }} className="font-black text-sm hover:opacity-70">
+              {/* 解除ボタン: 同じ人を連続選択するときのリセット用 */}
+              <button
+                onClick={() => selectUser(null)}
+                style={{ background: currentSelected === null ? '#000' : '#fff', color: currentSelected === null ? '#ffe600' : '#000', border: '2px solid #000', padding: '6px 16px' }}
+                className="font-black text-sm hover:opacity-70"
+              >
                 解除
               </button>
               {users.map((u) => (
-                <button key={u.id} onClick={() => selectUser(u.name)} style={{ background: currentSelected === u.name ? '#ff2200' : '#fff', color: currentSelected === u.name ? '#fff' : '#000', border: '2px solid #000', padding: '6px 16px' }} className="font-black text-sm hover:opacity-70">
+                <button
+                  key={u.id}
+                  onClick={() => selectUser(u.name)}
+                  style={{ background: currentSelected === u.name ? '#ff2200' : '#fff', color: currentSelected === u.name ? '#fff' : '#000', border: '2px solid #000', padding: '6px 16px' }}
+                  className="font-black text-sm hover:opacity-70"
+                >
                   {u.name}
                 </button>
               ))}
             </div>
+            <p className="text-xs mt-3" style={{ color: '#888' }}>同じ人を連続して選ぶ場合は一度「解除」してから再選択してください</p>
           </div>
         )}
 
@@ -175,13 +170,12 @@ export default function KattenPage() {
 
         {/* スコア入力 */}
         <div style={{ background: '#fff', border: '2.5px solid #000' }} className="p-5">
-          <p className="text-sm font-black mb-1">
+          <p className="text-sm font-black mb-3">
             {!currentSelected && '対象が選択されるまでお待ちください'}
             {currentSelected && !hasSubmitted && `「${currentSelected}」への点数を選んでください`}
             {hasSubmitted && `「${currentSelected}」への送信済みです`}
           </p>
 
-          {/* 送信済みバナー */}
           {hasSubmitted && (
             <div className="mb-4 py-3 text-center font-black text-lg" style={{ background: '#00aa44', color: '#fff' }}>
               ✓ {selectedScore}点を送信しました
@@ -189,7 +183,6 @@ export default function KattenPage() {
             </div>
           )}
 
-          {/* 数字選択ボタン */}
           <div className="grid grid-cols-4 gap-3 mb-4">
             {[0, 1, 2, 3].map((i) => (
               <button
@@ -214,7 +207,6 @@ export default function KattenPage() {
             ))}
           </div>
 
-          {/* 送信ボタン */}
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
@@ -225,8 +217,8 @@ export default function KattenPage() {
               padding: '14px 0',
               fontSize: '1.1rem',
               fontWeight: 900,
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
               border: '3px solid #000',
+              cursor: canSubmit ? 'pointer' : 'not-allowed',
               transition: 'opacity 0.1s',
             }}
             className="hover:opacity-80 disabled:opacity-60"
@@ -235,54 +227,45 @@ export default function KattenPage() {
           </button>
         </div>
 
-        {/* 管理者: スコア履歴 */}
-        {isAdmin && (
-          <div style={{ background: '#fff', border: '2.5px solid #000', borderLeft: '6px solid #00aa44' }} className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-black">
-                📋 スコア履歴
-                <span className="ml-2 font-black" style={{ color: '#ff2200' }}>{scores.length}</span>
-                <span className="font-normal text-xs ml-1" style={{ color: '#666' }}>件</span>
-              </p>
-              <div className="flex gap-2">
-                <button onClick={exportCSV} style={{ background: '#0033cc', color: '#fff', padding: '3px 12px' }} className="text-xs font-black hover:opacity-80">
-                  CSV出力
-                </button>
-                <button onClick={() => setShowHistory((v) => !v)} style={{ background: '#000', color: '#ffe600', padding: '3px 12px' }} className="text-xs font-black hover:opacity-80">
-                  {showHistory ? '▲ 閉じる' : '▼ 表示'}
-                </button>
-              </div>
-            </div>
-            {showHistory && (
-              <div className="max-h-72 overflow-y-auto">
-                {scores.length === 0 ? (
-                  <p className="text-sm" style={{ color: '#888' }}>まだ記録がありません</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #000' }}>
-                        <th className="text-left py-1 px-2 font-black">点数</th>
-                        <th className="text-left py-1 px-2 font-black">対象</th>
-                        <th className="text-left py-1 px-2 font-black">送信者</th>
-                        <th className="text-left py-1 px-2 font-black">時刻</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scores.map((s) => (
-                        <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
-                          <td className="py-1.5 px-2"><span className="font-black text-base" style={{ color: SCORE_COLORS[s.score] }}>{s.score}</span></td>
-                          <td className="py-1.5 px-2 font-bold">{s.selected_user ?? '—'}</td>
-                          <td className="py-1.5 px-2" style={{ color: '#444' }}>{s.voter_name ?? '—'}</td>
-                          <td className="py-1.5 px-2 text-xs" style={{ color: '#888' }}>{new Date(s.created_at).toLocaleString('ja-JP')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
+        {/* 自分の送信履歴（全員表示） */}
+        <div style={{ background: '#fff', border: '2.5px solid #000', borderLeft: '6px solid #00aa44' }} className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-black">
+              📋 自分の送信履歴
+              <span className="ml-2 font-black" style={{ color: '#ff2200' }}>{myScores.length}</span>
+              <span className="font-normal text-xs ml-1" style={{ color: '#666' }}>件</span>
+            </p>
+            <button onClick={() => setShowHistory((v) => !v)} style={{ background: '#000', color: '#ffe600', padding: '3px 12px' }} className="text-xs font-black hover:opacity-80">
+              {showHistory ? '▲ 閉じる' : '▼ 表示'}
+            </button>
           </div>
-        )}
+          {showHistory && (
+            <div className="max-h-64 overflow-y-auto">
+              {myScores.length === 0 ? (
+                <p className="text-sm" style={{ color: '#888' }}>まだ送信していません</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #000' }}>
+                      <th className="text-left py-1 px-2 font-black">点数</th>
+                      <th className="text-left py-1 px-2 font-black">対象</th>
+                      <th className="text-left py-1 px-2 font-black">時刻</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myScores.map((s) => (
+                      <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td className="py-1.5 px-2"><span className="font-black text-base" style={{ color: SCORE_COLORS[s.score] }}>{s.score}</span></td>
+                        <td className="py-1.5 px-2 font-bold">{s.selected_user ?? '—'}</td>
+                        <td className="py-1.5 px-2 text-xs" style={{ color: '#888' }}>{new Date(s.created_at).toLocaleString('ja-JP')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )
