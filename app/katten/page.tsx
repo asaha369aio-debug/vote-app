@@ -18,6 +18,7 @@ export default function KattenPage() {
   const [currentSelected, setCurrentSelected] = useState<string | null>(null)
   const [users, setUsers] = useState<KattenUser[]>([])
   const [myScores, setMyScores] = useState<KattenScore[]>([])
+  const [allScores, setAllScores] = useState<KattenScore[]>([])  // 管理者用全体履歴
   const [newUserName, setNewUserName] = useState('')
   const [selectedScore, setSelectedScore] = useState<number | null>(null)
   // ラウンドID: 管理者が選択を変えるたびにupdated_atが更新される
@@ -26,6 +27,7 @@ export default function KattenPage() {
   const [submittedForRound, setSubmittedForRound] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showAllHistory, setShowAllHistory] = useState(false)
 
   useEffect(() => {
     if (sessionStorage.getItem('siteAuth') !== '1') { router.replace('/'); return }
@@ -44,9 +46,15 @@ export default function KattenPage() {
     supabase.from('katten_users').select('*').order('created_at')
       .then(({ data }) => setUsers(data ?? []))
 
-    // 自分の送信履歴のみ取得
+    // 自分の送信履歴
     supabase.from('katten_scores').select('*').eq('voter_name', name).order('created_at', { ascending: false })
       .then(({ data }) => setMyScores(data ?? []))
+
+    // 全体履歴（管理者のみ）
+    if (admin) {
+      supabase.from('katten_scores').select('*').order('created_at', { ascending: false })
+        .then(({ data }) => setAllScores(data ?? []))
+    }
 
     const selChannel = supabase.channel('katten-current')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'katten_current' }, (payload) => {
@@ -55,11 +63,12 @@ export default function KattenPage() {
         setSelectedScore(null)
       }).subscribe()
 
-    // 自分のスコアが追加されたらリアルタイム反映
+    // スコア追加をリアルタイム反映
     const scoreChannel = supabase.channel('katten-my-scores')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'katten_scores' }, (payload) => {
         const s = payload.new as KattenScore
         if (s.voter_name === name) setMyScores((prev) => [s, ...prev])
+        if (admin) setAllScores((prev) => [s, ...prev])
       }).subscribe()
 
     return () => {
@@ -89,6 +98,21 @@ export default function KattenPage() {
   const removeUser = async (id: string) => {
     await supabase.from('katten_users').delete().eq('id', id)
     setUsers((prev) => prev.filter((u) => u.id !== id))
+  }
+
+  const exportCSV = () => {
+    const header = '点数,対象,送信者,時刻'
+    const rows = allScores.map((s) =>
+      `${s.score},"${s.selected_user ?? ''}","${s.voter_name ?? ''}","${new Date(s.created_at).toLocaleString('ja-JP')}"`
+    )
+    const csv = '﻿' + [header, ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `katten_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // ラウンドIDが一致 = このラウンド（選択操作）で既に送信済み
@@ -231,6 +255,53 @@ export default function KattenPage() {
             {submitting ? '送信中...' : selectedScore !== null && !hasSubmitted ? `${selectedScore}点を送信する` : '送信する'}
           </button>
         </div>
+
+        {/* 管理者: 全体の送信履歴 */}
+        {isAdmin && (
+          <div style={{ background: '#fff', border: '2.5px solid #000', borderLeft: '6px solid #ff2200' }} className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-black">
+                📊 全体の送信履歴
+                <span className="ml-2 font-black" style={{ color: '#ff2200' }}>{allScores.length}</span>
+                <span className="font-normal text-xs ml-1" style={{ color: '#666' }}>件</span>
+              </p>
+              <div className="flex gap-2">
+                <button onClick={exportCSV} style={{ background: '#0033cc', color: '#fff', padding: '3px 12px' }} className="text-xs font-black hover:opacity-80">CSV出力</button>
+                <button onClick={() => setShowAllHistory((v) => !v)} style={{ background: '#000', color: '#ffe600', padding: '3px 12px' }} className="text-xs font-black hover:opacity-80">
+                  {showAllHistory ? '▲ 閉じる' : '▼ 表示'}
+                </button>
+              </div>
+            </div>
+            {showAllHistory && (
+              <div className="max-h-72 overflow-y-auto">
+                {allScores.length === 0 ? (
+                  <p className="text-sm" style={{ color: '#888' }}>まだ記録がありません</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #000' }}>
+                        <th className="text-left py-1 px-2 font-black">点数</th>
+                        <th className="text-left py-1 px-2 font-black">対象</th>
+                        <th className="text-left py-1 px-2 font-black">送信者</th>
+                        <th className="text-left py-1 px-2 font-black">時刻</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allScores.map((s) => (
+                        <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
+                          <td className="py-1.5 px-2"><span className="font-black text-base" style={{ color: SCORE_COLORS[s.score] }}>{s.score}</span></td>
+                          <td className="py-1.5 px-2 font-bold">{s.selected_user ?? '—'}</td>
+                          <td className="py-1.5 px-2" style={{ color: '#444' }}>{s.voter_name ?? '—'}</td>
+                          <td className="py-1.5 px-2 text-xs" style={{ color: '#888' }}>{new Date(s.created_at).toLocaleString('ja-JP')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 自分の送信履歴（全員表示） */}
         <div style={{ background: '#fff', border: '2.5px solid #000', borderLeft: '6px solid #00aa44' }} className="p-5">
