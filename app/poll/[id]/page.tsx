@@ -110,7 +110,7 @@ export default function PollPage() {
     let frame = 0
     setDisplayPercents(patternPercents(frame, count))
     const TOTAL_DURATION = animSeconds * 1000
-    const INTERVAL_MS = 300
+    const INTERVAL_MS = 150
     let elapsed = 0
     intervalRef.current = setInterval(() => {
       elapsed += INTERVAL_MS
@@ -155,7 +155,7 @@ export default function PollPage() {
               const percent = displayPercents[i] ?? 0
               const color = BAR_COLORS[i % BAR_COLORS.length]
               return (
-                <div key={opt.id} className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
+                <div key={opt.id} className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.12s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
                   <p className="font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
                   <p className="font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
                 </div>
