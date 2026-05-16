@@ -172,7 +172,8 @@ export default function PollPage() {
                   style={{
                     width: `${percent}%`,
                     background: color,
-                    opacity: phase === 'ready' ? 0.3 : 1,
+                    opacity: phase === 'ready' ? 0.3 : percent === 0 ? 0 : 1,
+                    pointerEvents: percent === 0 ? 'none' : undefined,
                     transition: isRevealed
                       ? 'width 1.2s ease-out, opacity 0.3s ease'
                       : 'width 0.12s ease-in-out, opacity 0.3s ease',
@@ -183,7 +184,7 @@ export default function PollPage() {
                     <>
                       {isRevealed && <div className="shine-overlay" />}
                       <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                      <p className="relative font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
+                      <p className="relative font-black text-white" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
                     </>
                   )}
                 </div>
