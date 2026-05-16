@@ -17,10 +17,13 @@ export default function KattenPage() {
   const [voterName, setVoterName] = useState<string | null>(null)
   const [currentSelected, setCurrentSelected] = useState<string | null>(null)
   const [users, setUsers] = useState<KattenUser[]>([])
-  const [myScores, setMyScores] = useState<KattenScore[]>([])   // 自分の送信履歴
+  const [myScores, setMyScores] = useState<KattenScore[]>([])
   const [newUserName, setNewUserName] = useState('')
   const [selectedScore, setSelectedScore] = useState<number | null>(null)
-  const [submittedFor, setSubmittedFor] = useState<string | null>(null)
+  // ラウンドID: 管理者が選択を変えるたびにupdated_atが更新される
+  // 送信済みラウンドと現在ラウンドが一致していれば送信ロック
+  const [currentRound, setCurrentRound] = useState<string | null>(null)
+  const [submittedForRound, setSubmittedForRound] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -32,8 +35,11 @@ export default function KattenPage() {
     const admin = localStorage.getItem('isAdmin') === '1'
     setIsAdmin(admin)
 
-    supabase.from('katten_current').select('selected_user').eq('id', 1).single()
-      .then(({ data }) => setCurrentSelected(data?.selected_user ?? null))
+    supabase.from('katten_current').select('selected_user, updated_at').eq('id', 1).single()
+      .then(({ data }) => {
+        setCurrentSelected(data?.selected_user ?? null)
+        setCurrentRound(data?.updated_at ?? null)
+      })
 
     supabase.from('katten_users').select('*').order('created_at')
       .then(({ data }) => setUsers(data ?? []))
@@ -44,11 +50,9 @@ export default function KattenPage() {
 
     const selChannel = supabase.channel('katten-current')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'katten_current' }, (payload) => {
-        const newSelected = payload.new.selected_user ?? null
-        setCurrentSelected(newSelected)
+        setCurrentSelected(payload.new.selected_user ?? null)
+        setCurrentRound(payload.new.updated_at)  // ラウンドIDを更新（選択が何であれ毎回変わる）
         setSelectedScore(null)
-        // 解除（null）になったらロックをリセット
-        if (newSelected === null) setSubmittedFor(null)
       }).subscribe()
 
     // 自分のスコアが追加されたらリアルタイム反映
@@ -72,7 +76,7 @@ export default function KattenPage() {
     if (!voterName || submitting || selectedScore === null || !currentSelected) return
     setSubmitting(true)
     await supabase.from('katten_scores').insert({ score: selectedScore, selected_user: currentSelected, voter_name: voterName })
-    setSubmittedFor(currentSelected)
+    setSubmittedForRound(currentRound)  // 現在のラウンドIDで送信済みとしてロック
     setSubmitting(false)
   }
 
@@ -87,7 +91,8 @@ export default function KattenPage() {
     setUsers((prev) => prev.filter((u) => u.id !== id))
   }
 
-  const hasSubmitted = currentSelected !== null && submittedFor === currentSelected
+  // ラウンドIDが一致 = このラウンド（選択操作）で既に送信済み
+  const hasSubmitted = currentRound !== null && submittedForRound === currentRound
   const canSubmit = currentSelected !== null && !hasSubmitted && selectedScore !== null && !submitting
 
   if (!voterName) return null
