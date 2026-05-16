@@ -1,21 +1,26 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const QUICK_WORDS_KEY = 'quickWords'
 const DEFAULT_QUICK_WORDS = ['はい', 'いいえ', 'どちらでもない', '賛成', '反対', 'その他']
 
-// F デザイン カラーブロック用アクセントカラー
 const ACCENTS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600']
 
-export default function CreatePoll() {
+type OptionItem = { id: string | null; text: string }
+
+export default function EditPoll() {
   const router = useRouter()
+  const { id } = useParams<{ id: string }>()
+
   const [question, setQuestion] = useState('')
-  const [options, setOptions] = useState(['', ''])
+  const [options, setOptions] = useState<OptionItem[]>([])
+  const [removedOptionIds, setRemovedOptionIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [quickWords, setQuickWords] = useState<string[]>([])
   const [newWord, setNewWord] = useState('')
   const [showAddWord, setShowAddWord] = useState(false)
@@ -28,7 +33,18 @@ export default function CreatePoll() {
     if (localStorage.getItem('isAdmin') !== '1') { router.replace('/'); return }
     const saved = localStorage.getItem(QUICK_WORDS_KEY)
     setQuickWords(saved ? JSON.parse(saved) : DEFAULT_QUICK_WORDS)
-  }, [])
+    const load = async () => {
+      const [{ data: poll }, { data: opts }] = await Promise.all([
+        supabase.from('polls').select('*').eq('id', id).single(),
+        supabase.from('poll_options').select('*').eq('poll_id', id),
+      ])
+      if (!poll) { router.replace('/'); return }
+      setQuestion(poll.question)
+      setOptions((opts ?? []).map((o) => ({ id: o.id, text: o.text })))
+      setInitialLoading(false)
+    }
+    load()
+  }, [id])
 
   useEffect(() => {
     if (quickWords.length > 0) localStorage.setItem(QUICK_WORDS_KEY, JSON.stringify(quickWords))
@@ -46,7 +62,7 @@ export default function CreatePoll() {
     } else if (focusedField.startsWith('option-')) {
       const index = parseInt(focusedField.replace('option-', ''), 10)
       const el = optionRefs.current[index]; if (!el) return
-      const current = options[index]
+      const current = options[index].text
       const start = el.selectionStart ?? current.length
       const end = el.selectionEnd ?? current.length
       const next = current.slice(0, start) + word + current.slice(end)
@@ -62,31 +78,46 @@ export default function CreatePoll() {
   }
 
   const removeWord = (word: string) => setQuickWords(quickWords.filter((w) => w !== word))
-  const addOption = () => setOptions([...options, ''])
-  const updateOption = (index: number, value: string) => {
-    const updated = [...options]; updated[index] = value; setOptions(updated)
+  const updateOption = (index: number, text: string) => setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, text } : o)))
+  const removeOption = (index: number) => {
+    const target = options[index]
+    if (target.id) setRemovedOptionIds((prev) => [...prev, target.id!])
+    setOptions((prev) => prev.filter((_, i) => i !== index))
   }
-  const removeOption = (index: number) => setOptions(options.filter((_, i) => i !== index))
+  const addOption = () => setOptions((prev) => [...prev, { id: null, text: '' }])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validOptions = options.filter((o) => o.trim() !== '')
+    const validOptions = options.filter((o) => o.text.trim() !== '')
     if (!question.trim() || validOptions.length < 2) return
     setLoading(true)
-    const { data: poll, error } = await supabase.from('polls').insert({ question: question.trim() }).select().single()
-    if (error || !poll) { setLoading(false); return }
-    await supabase.from('poll_options').insert(validOptions.map((text) => ({ poll_id: poll.id, text })))
-    router.push(`/poll/${poll.id}`)
+    await supabase.from('polls').update({ question: question.trim() }).eq('id', id)
+    if (removedOptionIds.length > 0) {
+      await supabase.from('votes').delete().in('option_id', removedOptionIds)
+      await supabase.from('poll_options').delete().in('id', removedOptionIds)
+    }
+    const existingUpdates = validOptions.filter((o) => o.id !== null)
+    await Promise.all(existingUpdates.map((o) => supabase.from('poll_options').update({ text: o.text.trim() }).eq('id', o.id!)))
+    const newOptions = validOptions.filter((o) => o.id === null)
+    if (newOptions.length > 0) await supabase.from('poll_options').insert(newOptions.map((o) => ({ poll_id: id, text: o.text.trim() })))
+    router.push('/')
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#ffe600' }}>
+        <p className="font-black text-black text-lg animate-pulse">読み込み中...</p>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
-      {/* ヘッダー */}
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
           <span className="text-black/40 font-bold">|</span>
-          <h1 className="text-xl font-black text-black">新しい投票を作成</h1>
+          <h1 className="text-xl font-black text-black">投票を編集</h1>
         </div>
       </header>
 
@@ -97,12 +128,7 @@ export default function CreatePoll() {
           <div style={{ background: '#ffe600', border: '2px solid #000000' }} className="p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-black text-black">⚡ クイック入力</p>
-              <button
-                type="button"
-                onClick={() => setShowAddWord((v) => !v)}
-                className="text-xs font-black transition-opacity hover:opacity-60"
-                style={{ color: '#0033cc' }}
-              >
+              <button type="button" onClick={() => setShowAddWord((v) => !v)} style={{ color: '#0033cc' }} className="text-xs font-black hover:opacity-60 transition-opacity">
                 {showAddWord ? 'キャンセル' : '＋ ワードを追加'}
               </button>
             </div>
@@ -118,14 +144,7 @@ export default function CreatePoll() {
                   style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
                   className="flex-1 px-3 py-1.5 text-sm focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={handleAddWord}
-                  style={{ background: '#000000', color: '#ffe600' }}
-                  className="text-sm font-black px-3 py-1.5 transition-opacity hover:opacity-80"
-                >
-                  追加
-                </button>
+                <button type="button" onClick={handleAddWord} style={{ background: '#000000', color: '#ffe600' }} className="text-sm font-black px-3 py-1.5 hover:opacity-80 transition-opacity">追加</button>
               </div>
             )}
 
@@ -135,28 +154,8 @@ export default function CreatePoll() {
               <div className="flex flex-wrap gap-2">
                 {quickWords.map((word) => (
                   <div key={word} className="flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => insertWord(word)}
-                      style={{
-                        border: `2px solid #000000`,
-                        borderRight: 'none',
-                        background: focusedField ? '#000000' : '#ffffff',
-                        color: focusedField ? '#ffe600' : '#000000',
-                      }}
-                      className="text-sm px-3 py-1 font-bold transition-all"
-                    >
-                      {word}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeWord(word)}
-                      style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }}
-                      className="text-xs px-1.5 py-1 font-black transition-opacity hover:opacity-60"
-                      title="削除"
-                    >
-                      ×
-                    </button>
+                    <button type="button" onClick={() => insertWord(word)} style={{ border: '2px solid #000000', borderRight: 'none', background: focusedField ? '#000000' : '#ffffff', color: focusedField ? '#ffe600' : '#000000' }} className="text-sm px-3 py-1 font-bold transition-all">{word}</button>
+                    <button type="button" onClick={() => removeWord(word)} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="text-xs px-1.5 py-1 font-black hover:opacity-60 transition-opacity" title="削除">×</button>
                   </div>
                 ))}
               </div>
@@ -164,7 +163,7 @@ export default function CreatePoll() {
             {!focusedField && <p className="text-xs text-black/40 mt-2">入力欄をクリックしてからワードを押すと入力されます</p>}
           </div>
 
-          {/* 投票作成フォーム */}
+          {/* 編集フォーム */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-black text-black mb-2">📝 質問</label>
@@ -183,6 +182,9 @@ export default function CreatePoll() {
 
             <div>
               <label className="block text-sm font-black text-black mb-2">🎯 選択肢</label>
+              {removedOptionIds.length > 0 && (
+                <p className="text-xs font-bold mb-2" style={{ color: '#ff6600' }}>⚠️ 削除した選択肢の投票記録も保存時に削除されます</p>
+              )}
               <div className="space-y-3">
                 {options.map((opt, i) => (
                   <div key={i} className="flex gap-2 items-center">
@@ -190,7 +192,7 @@ export default function CreatePoll() {
                     <input
                       ref={(el) => { optionRefs.current[i] = el }}
                       type="text"
-                      value={opt}
+                      value={opt.text}
                       onChange={(e) => updateOption(i, e.target.value)}
                       onFocus={() => setFocusedField(`option-${i}`)}
                       placeholder={`選択肢 ${i + 1}`}
@@ -203,18 +205,11 @@ export default function CreatePoll() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={addOption} style={{ color: '#0033cc' }} className="mt-3 text-sm font-black hover:opacity-60 transition-opacity">
-                ＋ 選択肢を追加
-              </button>
+              <button type="button" onClick={addOption} style={{ color: '#0033cc' }} className="mt-3 text-sm font-black hover:opacity-60 transition-opacity">＋ 選択肢を追加</button>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{ background: '#000000', color: '#ffe600' }}
-              className="w-full font-black py-3 transition-opacity hover:opacity-80 disabled:opacity-50 text-lg"
-            >
-              {loading ? '作成中...' : '🚀 投票を作成する'}
+            <button type="submit" disabled={loading} style={{ background: '#000000', color: '#ffe600' }} className="w-full font-black py-3 hover:opacity-80 transition-opacity disabled:opacity-50 text-lg">
+              {loading ? '保存中...' : '💾 変更を保存する'}
             </button>
           </form>
         </div>
