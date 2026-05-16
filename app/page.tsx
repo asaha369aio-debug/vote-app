@@ -28,7 +28,7 @@ const inputStyle: React.CSSProperties = {
 // 機能カード定義
 const FEATURES = [
   { href: '/vote', icon: '🗳️', label: '投票', desc: 'リアルタイムで投票・集計', active: true, accent: '#ff2200' },
-  { href: '#',    icon: '📊', label: 'アンケート', desc: '準備中', active: false, accent: '#0033cc' },
+  { href: '/katten', icon: '📊', label: '加点', desc: '対象を選んでリアルタイム加点', active: true, accent: '#0033cc' },
   { href: '#',    icon: '🎯', label: 'ゲーム',    desc: '準備中', active: false, accent: '#00aa44' },
   { href: '#',    icon: '📝', label: 'メモ',      desc: '準備中', active: false, accent: '#ff6600' },
 ]
