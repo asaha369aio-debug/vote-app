@@ -29,8 +29,6 @@ const inputStyle: React.CSSProperties = {
 const FEATURES = [
   { key: 'vote',   href: '/vote',   icon: '🗳️', label: '投票', desc: 'リアルタイムで投票・集計',       accent: '#ff2200' },
   { key: 'katten', href: '/katten', icon: '📊', label: '加点', desc: '対象を選んでリアルタイム加点', accent: '#0033cc' },
-  { key: 'game',   href: '#',       icon: '🎯', label: 'ゲーム', desc: '準備中',                      accent: '#00aa44' },
-  { key: 'memo',   href: '#',       icon: '📝', label: 'メモ',   desc: '準備中',                      accent: '#ff6600' },
 ]
 
 // 管理者がオン/オフできる機能キー
