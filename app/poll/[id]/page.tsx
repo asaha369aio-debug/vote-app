@@ -155,7 +155,10 @@ export default function PollPage() {
               const percent = displayPercents[i] ?? 0
               const color = BAR_COLORS[i % BAR_COLORS.length]
               return (
-                <div key={opt.id} className="relative h-full" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }} />
+                <div key={opt.id} className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
+                  <p className="font-black text-white text-sm leading-tight truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                  <p className="font-black text-white text-xl" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{percent}%</p>
+                </div>
               )
             })}
             {phase === 'revealed' && options.map((opt, i) => {
@@ -163,8 +166,10 @@ export default function PollPage() {
               if (percent === 0) return null
               const color = BAR_COLORS[i % BAR_COLORS.length]
               return (
-                <div key={opt.id} className="relative h-full overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 2.2s cubic-bezier(0.34, 1.6, 0.64, 1)', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
+                <div key={opt.id} className="relative h-full overflow-hidden flex flex-col justify-end pb-4 px-2" style={{ width: `${percent}%`, background: color, transition: 'width 2.2s cubic-bezier(0.34, 1.6, 0.64, 1)', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
                   <div className="shine-overlay" />
+                  <p className="relative font-black text-white text-sm leading-tight truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                  <p className="relative font-black text-white text-2xl" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{percent}%</p>
                 </div>
               )
             })}
