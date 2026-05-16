@@ -43,7 +43,17 @@ export default function PollPage() {
   const [displayPercents, setDisplayPercents] = useState<number[]>([])
   const [showVoterList, setShowVoterList] = useState(false)
   const [animSeconds, setAnimSeconds] = useState(5)
+  const [fontKey, setFontKey] = useState<'system' | 'anton' | 'bebas' | 'noto' | 'mplus'>('system')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const FONTS = [
+    { key: 'system', label: 'System',  family: 'system-ui, sans-serif' },
+    { key: 'anton',  label: 'Anton',   family: 'var(--font-anton), sans-serif' },
+    { key: 'bebas',  label: 'Bebas',   family: 'var(--font-bebas), sans-serif' },
+    { key: 'noto',   label: 'Noto JP', family: 'var(--font-noto), sans-serif' },
+    { key: 'mplus',  label: 'M PLUS',  family: 'var(--font-mplus), sans-serif' },
+  ] as const
+  const graphFont = FONTS.find(f => f.key === fontKey)?.family ?? 'system-ui'
 
   const storageKey = `voted-${id}`
   const totalVotes = voteCounts.reduce((sum, v) => sum + v.count, 0)
@@ -183,8 +193,8 @@ export default function PollPage() {
                   {phase !== 'ready' && (
                     <>
                       {isRevealed && <div className="shine-overlay" />}
-                      <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '2.7rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                      <p className="relative font-black text-white" style={{ fontSize: '3.15rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
+                      <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '2.2rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', fontFamily: graphFont }}>{opt.text}</p>
+                      <p className="relative font-black text-white" style={{ fontSize: '3.15rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1, fontFamily: graphFont }}>{percent}%</p>
                     </>
                   )}
                 </div>
@@ -228,6 +238,31 @@ export default function PollPage() {
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 右下：フォント切替 */}
+      <div className="fixed bottom-24 right-6 flex flex-col items-end gap-1">
+        <span className="text-xs font-black" style={{ color: '#ffe600' }}>フォント</span>
+        <div className="flex gap-1">
+          {FONTS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFontKey(f.key)}
+              style={{
+                background: fontKey === f.key ? '#ffe600' : '#333333',
+                color: fontKey === f.key ? '#000000' : '#ffe600',
+                border: '1.5px solid #ffe600',
+                fontFamily: f.family,
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
