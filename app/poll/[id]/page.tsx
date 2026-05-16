@@ -183,8 +183,8 @@ export default function PollPage() {
                   {phase !== 'ready' && (
                     <>
                       {isRevealed && <div className="shine-overlay" />}
-                      <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                      <p className="relative font-black text-white" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
+                      <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '2.7rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                      <p className="relative font-black text-white" style={{ fontSize: '3.15rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
                     </>
                   )}
                 </div>
