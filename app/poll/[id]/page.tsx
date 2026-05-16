@@ -159,30 +159,33 @@ export default function PollPage() {
 
         <div className="flex-1 flex flex-col justify-center px-8 py-4">
           <div className="flex w-full overflow-hidden" style={{ height: 'clamp(180px, 55vh, 480px)', border: '3px solid #ffe600' }}>
-            {phase === 'ready' && options.map((opt, i) => {
+            {options.map((opt, i) => {
               const color = BAR_COLORS[i % BAR_COLORS.length]
-              const percent = 100 / options.length
-              return <div key={opt.id} className="relative h-full" style={{ width: `${percent}%`, background: color, opacity: 0.3 }} />
-            })}
-            {phase === 'suspense' && options.map((opt, i) => {
-              const percent = displayPercents[i] ?? 0
-              const color = BAR_COLORS[i % BAR_COLORS.length]
+              const percent = phase === 'ready'
+                ? 100 / options.length
+                : displayPercents[i] ?? 0
+              const isRevealed = phase === 'revealed'
               return (
-                <div key={opt.id} className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.12s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
-                  <p className="font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                  <p className="font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
-                </div>
-              )
-            })}
-            {phase === 'revealed' && options.map((opt, i) => {
-              const percent = displayPercents[i] ?? 0
-              if (percent === 0) return null
-              const color = BAR_COLORS[i % BAR_COLORS.length]
-              return (
-                <div key={opt.id} className="relative h-full overflow-hidden flex flex-col justify-end pb-4 px-2" style={{ width: `${percent}%`, background: color, transition: 'width 2.2s cubic-bezier(0.34, 1.6, 0.64, 1)', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
-                  <div className="shine-overlay" />
-                  <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                  <p className="relative font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
+                <div
+                  key={opt.id}
+                  className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden"
+                  style={{
+                    width: `${percent}%`,
+                    background: color,
+                    opacity: phase === 'ready' ? 0.3 : 1,
+                    transition: isRevealed
+                      ? 'width 1.2s ease-out, opacity 0.3s ease'
+                      : 'width 0.12s ease-in-out, opacity 0.3s ease',
+                    borderLeft: i > 0 ? '3px solid #111111' : 'none',
+                  }}
+                >
+                  {phase !== 'ready' && (
+                    <>
+                      {isRevealed && <div className="shine-overlay" />}
+                      <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                      <p className="relative font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
+                    </>
+                  )}
                 </div>
               )
             })}
