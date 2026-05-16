@@ -85,7 +85,7 @@ export default function PollPage() {
   }, [id])
 
   useEffect(() => {
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    return () => { if (intervalRef.current) clearTimeout(intervalRef.current) }
   }, [])
 
   const handleVote = async (optionId: string) => {
@@ -100,7 +100,7 @@ export default function PollPage() {
   }
 
   const handleReveal = () => {
-    if (phase === 'ready' || phase === 'revealed') { if (intervalRef.current) clearInterval(intervalRef.current); setPhase('hidden'); return }
+    if (phase === 'ready' || phase === 'revealed') { if (intervalRef.current) clearTimeout(intervalRef.current); setPhase('hidden'); return }
     setPhase('ready')
   }
 
@@ -109,19 +109,32 @@ export default function PollPage() {
     setPhase('suspense')
     let frame = 0
     setDisplayPercents(patternPercents(frame, count))
-    const TOTAL_DURATION = animSeconds * 1000
-    const INTERVAL_MS = 150
+    const TOTAL_MS = animSeconds * 1000
+    const SLOW_START_MS = TOTAL_MS * 0.7  // 70%まで通常速度
     let elapsed = 0
-    intervalRef.current = setInterval(() => {
-      elapsed += INTERVAL_MS
-      frame++
-      if (elapsed >= TOTAL_DURATION) {
-        clearInterval(intervalRef.current!); intervalRef.current = null
-        setDisplayPercents(realPercents); setPhase('revealed')
-      } else {
-        setDisplayPercents(patternPercents(frame, count))
-      }
-    }, INTERVAL_MS)
+
+    const tick = () => {
+      // 残り時間の割合（0=開始, 1=終了）
+      const progress = elapsed / TOTAL_MS
+      // 70%以降は徐々に遅くする（150ms → 800ms）
+      const interval = progress < 0.7
+        ? 150
+        : 150 + (800 - 150) * ((progress - 0.7) / 0.3)
+
+      intervalRef.current = setTimeout(() => {
+        elapsed += interval
+        frame++
+        if (elapsed >= TOTAL_MS) {
+          intervalRef.current = null
+          setDisplayPercents(realPercents)
+          setPhase('revealed')
+        } else {
+          setDisplayPercents(patternPercents(frame, count))
+          tick()
+        }
+      }, interval)
+    }
+    tick()
   }
 
   if (!poll) {
@@ -168,8 +181,8 @@ export default function PollPage() {
               return (
                 <div key={opt.id} className="relative h-full overflow-hidden flex flex-col justify-end pb-4 px-2" style={{ width: `${percent}%`, background: color, transition: 'width 2.2s cubic-bezier(0.34, 1.6, 0.64, 1)', borderLeft: i > 0 ? '3px solid #111111' : 'none' }}>
                   <div className="shine-overlay" />
-                  <p className="relative font-black text-white text-2xl leading-tight truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
-                  <p className="relative font-black text-white text-4xl" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{percent}%</p>
+                  <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '4.5rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{opt.text}</p>
+                  <p className="relative font-black text-white" style={{ fontSize: '9rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1 }}>{percent}%</p>
                 </div>
               )
             })}
