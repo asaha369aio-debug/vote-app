@@ -11,20 +11,22 @@ const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007
 type VoteCount = { option_id: string; count: number }
 type VoteRecord = { option_id: string; voter_name: string | null }
 
-function randomPercents(count: number, minValue = 5): number[] {
+// 1:1 → 2:1 → 3:1 → 2:1 のパターンで dominant オプションの幅を変化させる
+const RATIO_PATTERN = [1, 2, 3, 2]
+
+function patternPercents(frame: number, count: number): number[] {
   if (count === 0) return []
   if (count === 1) return [100]
-  const base = minValue
-  let remaining = 100 - base * count
-  const values = Array(count).fill(base)
-  for (let i = 0; i < count - 1; i++) {
-    const max = remaining - base * (count - i - 1)
-    const take = Math.floor(Math.random() * (max + 1))
-    values[i] += take
-    remaining -= take
-  }
-  values[count - 1] += remaining
-  return values.sort(() => Math.random() - 0.5)
+  const stepsPerOption = RATIO_PATTERN.length
+  const totalSteps = stepsPerOption * count
+  const step = frame % totalSteps
+  const dominantIdx = Math.floor(step / stepsPerOption)
+  const ratio = RATIO_PATTERN[step % stepsPerOption]
+  // dominant: ratio、それ以外: 1 ずつ
+  const total = ratio + (count - 1)
+  const percents = Array(count).fill(Math.round(100 / total))
+  percents[dominantIdx] = 100 - percents[0] * (count - 1)
+  return percents
 }
 
 export default function PollPage() {
@@ -40,7 +42,7 @@ export default function PollPage() {
   const [phase, setPhase] = useState<'hidden' | 'ready' | 'suspense' | 'revealed'>('hidden')
   const [displayPercents, setDisplayPercents] = useState<number[]>([])
   const [showVoterList, setShowVoterList] = useState(false)
-  const [animSeconds, setAnimSeconds] = useState(4)
+  const [animSeconds, setAnimSeconds] = useState(5)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const storageKey = `voted-${id}`
@@ -104,19 +106,20 @@ export default function PollPage() {
 
   const handleStart = () => {
     const count = options.length; if (count === 0) return
-    setPhase('suspense'); setDisplayPercents(randomPercents(count))
+    setPhase('suspense')
+    let frame = 0
+    setDisplayPercents(patternPercents(frame, count))
     const TOTAL_DURATION = animSeconds * 1000
     const INTERVAL_MS = 300
     let elapsed = 0
     intervalRef.current = setInterval(() => {
       elapsed += INTERVAL_MS
-      const slowingDown = elapsed > TOTAL_DURATION - 1500
-      if (slowingDown && elapsed % (INTERVAL_MS * 2) !== 0) return
+      frame++
       if (elapsed >= TOTAL_DURATION) {
         clearInterval(intervalRef.current!); intervalRef.current = null
         setDisplayPercents(realPercents); setPhase('revealed')
       } else {
-        setDisplayPercents(randomPercents(count))
+        setDisplayPercents(patternPercents(frame, count))
       }
     }, INTERVAL_MS)
   }
@@ -150,13 +153,9 @@ export default function PollPage() {
             })}
             {phase === 'suspense' && options.map((opt, i) => {
               const percent = displayPercents[i] ?? 0
-              if (percent === 0) return null
               const color = BAR_COLORS[i % BAR_COLORS.length]
-              const bobDelay = `${i * 0.18}s`; const pulseDelay = `${i * 0.3 + 0.2}s`; const shimmerDelay = `${i * 0.5}s`
               return (
-                <div key={opt.id} className="relative h-full overflow-hidden" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none', animation: `liquid-bob 2.0s ease-in-out ${bobDelay} infinite, liquid-glow-pulse 2.8s ease-in-out ${pulseDelay} infinite` }}>
-                  <div className="liquid-shimmer-overlay" style={{ animationDelay: shimmerDelay }} />
-                </div>
+                <div key={opt.id} className="relative h-full" style={{ width: `${percent}%`, background: color, transition: 'width 0.25s ease-in-out', borderLeft: i > 0 ? '3px solid #111111' : 'none' }} />
               )
             })}
             {phase === 'revealed' && options.map((opt, i) => {
