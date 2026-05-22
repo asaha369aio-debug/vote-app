@@ -28,6 +28,10 @@ export default function KattenPage() {
   const [submitting, setSubmitting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAllHistory, setShowAllHistory] = useState(false)
+  const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
+  const [sessionNote, setSessionNote] = useState('')     // 管理者メモ（全員に表示）
+  const [editingNote, setEditingNote] = useState(false)  // 管理者のみ編集モード
+  const [noteInput, setNoteInput] = useState('')
 
   useEffect(() => {
     if (sessionStorage.getItem('siteAuth') !== '1') { router.replace('/'); return }
@@ -37,10 +41,11 @@ export default function KattenPage() {
     const admin = localStorage.getItem('isAdmin') === '1'
     setIsAdmin(admin)
 
-    supabase.from('katten_current').select('selected_user, updated_at').eq('id', 1).single()
+    supabase.from('katten_current').select('selected_user, updated_at, note').eq('id', 1).single()
       .then(({ data }) => {
         setCurrentSelected(data?.selected_user ?? null)
         setCurrentRound(data?.updated_at ?? null)
+        setSessionNote(data?.note ?? '')
       })
 
     supabase.from('katten_users').select('*').order('created_at')
@@ -61,6 +66,8 @@ export default function KattenPage() {
         setCurrentSelected(payload.new.selected_user ?? null)
         setCurrentRound(payload.new.updated_at)  // ラウンドIDを更新（選択が何であれ毎回変わる）
         setSelectedScore(null)
+        // メモの変更もリアルタイム反映
+        if (payload.new.note !== undefined) setSessionNote(payload.new.note ?? '')
       }).subscribe()
 
     // スコア追加をリアルタイム反映
@@ -95,15 +102,30 @@ export default function KattenPage() {
     if (data) { setUsers((prev) => [...prev, data]); setNewUserName('') }
   }
 
+  const deleteScore = async (id: string) => {
+    await supabase.from('katten_scores').delete().eq('id', id)
+    setAllScores((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  const saveNote = async () => {
+    await supabase.from('katten_current').update({ note: noteInput }).eq('id', 1)
+    setSessionNote(noteInput)
+    setEditingNote(false)
+  }
+
+  const handleAdminLogout = () => { localStorage.removeItem('isAdmin'); setIsAdmin(false); setFloatingMenuOpen(false) }
+  const handleSiteLogout = () => { sessionStorage.removeItem('siteAuth'); router.replace('/'); setFloatingMenuOpen(false) }
+
   const removeUser = async (id: string) => {
     await supabase.from('katten_users').delete().eq('id', id)
     setUsers((prev) => prev.filter((u) => u.id !== id))
   }
 
   const exportCSV = () => {
-    const header = '点数,対象,送信者,時刻'
+    // メモをCSVの先頭行として付加
+    const header = '点数,対象,送信者,時刻,ステージ'
     const rows = allScores.map((s) =>
-      `${s.score},"${s.selected_user ?? ''}","${s.voter_name ?? ''}","${new Date(s.created_at).toLocaleString('ja-JP')}"`
+      `${s.score},"${s.selected_user ?? ''}","${s.voter_name ?? ''}","${new Date(s.created_at).toLocaleString('ja-JP')}","${sessionNote}"`
     )
     const csv = '﻿' + [header, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -139,13 +161,55 @@ export default function KattenPage() {
 
       <main className="max-w-2xl mx-auto px-6 py-6 space-y-6">
 
-        {/* 現在の対象 */}
-        <div style={{ background: '#000' }} className="px-6 py-6 text-center">
-          <p className="text-xs font-black mb-2" style={{ color: '#ffe600', letterSpacing: '0.15em' }}>現在の対象</p>
-          {currentSelected
-            ? <p className="text-4xl font-black" style={{ color: '#ffe600' }}>{currentSelected}</p>
-            : <p className="text-xl font-black" style={{ color: '#666' }}>未選択</p>
-          }
+        {/* メモ・現在の対象を横並び */}
+        <div className="flex gap-3 items-stretch">
+          {/* 現在の対象 */}
+          <div style={{ background: '#000', minWidth: '120px' }} className="px-4 py-5 text-center flex flex-col justify-center flex-shrink-0">
+            <p className="text-xs font-black mb-2" style={{ color: '#ffe600', letterSpacing: '0.15em' }}>現在の対象</p>
+            {currentSelected
+              ? <p className="text-2xl font-black" style={{ color: '#ffe600' }}>{currentSelected}</p>
+              : <p className="text-base font-black" style={{ color: '#666' }}>未選択</p>
+            }
+          </div>
+
+          {/* メモ欄（管理者が編集・全員に表示） */}
+          {(isAdmin || sessionNote) && (
+            <div style={{ background: '#fff', border: '2.5px solid #000', borderLeft: '6px solid #ffe600' }} className="p-4 flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-black" style={{ color: '#888', letterSpacing: '0.08em' }}>📝 ステージ</p>
+                {isAdmin && !editingNote && (
+                  <button
+                    onClick={() => { setNoteInput(sessionNote); setEditingNote(true) }}
+                    className="text-xs font-black px-2 py-0.5 hover:opacity-70"
+                    style={{ background: '#000', color: '#ffe600' }}
+                  >
+                    編集
+                  </button>
+                )}
+              </div>
+              {isAdmin && editingNote ? (
+                <div className="flex gap-2">
+                  <textarea
+                    value={noteInput}
+                    onChange={(e) => setNoteInput(e.target.value)}
+                    rows={3}
+                    placeholder="ステージを入力してください"
+                    className="flex-1 text-sm font-black resize-none focus:outline-none"
+                    style={{ border: '2px solid #000', padding: '8px 10px', background: '#fff', color: '#000' }}
+                    autoFocus
+                  />
+                  <div className="flex flex-col gap-1">
+                    <button onClick={saveNote} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ background: '#000', color: '#ffe600' }}>保存</button>
+                    <button onClick={() => setEditingNote(false)} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ border: '1.5px solid #000', color: '#000' }}>ｷｬﾝｾﾙ</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm font-black whitespace-pre-wrap" style={{ color: sessionNote ? '#000' : '#aaa' }}>
+                  {sessionNote || '（ステージなし）'}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 管理者: 対象選択 */}
@@ -293,6 +357,8 @@ export default function KattenPage() {
                         <th className="text-left py-1 px-2 font-black">対象</th>
                         <th className="text-left py-1 px-2 font-black">送信者</th>
                         <th className="text-left py-1 px-2 font-black">時刻</th>
+                        <th className="text-left py-1 px-2 font-black">ステージ</th>
+                        <th className="py-1 px-2" />
                       </tr>
                     </thead>
                     <tbody>
@@ -302,6 +368,15 @@ export default function KattenPage() {
                           <td className="py-1.5 px-2 font-bold">{s.selected_user ?? '—'}</td>
                           <td className="py-1.5 px-2" style={{ color: '#444' }}>{s.voter_name ?? '—'}</td>
                           <td className="py-1.5 px-2 text-xs" style={{ color: '#888' }}>{new Date(s.created_at).toLocaleString('ja-JP')}</td>
+                          <td className="py-1.5 px-2 text-xs" style={{ color: '#555', maxWidth: '120px' }}>{sessionNote || '—'}</td>
+                          <td className="py-1.5 px-2">
+                            <button
+                              onClick={() => deleteScore(s.id)}
+                              className="text-xs font-black px-1.5 py-0.5 hover:opacity-80"
+                              style={{ background: '#ff2200', color: '#fff' }}
+                              title="削除"
+                            >×</button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -352,6 +427,30 @@ export default function KattenPage() {
           )}
         </div>
       </main>
+
+      {/* フローティングメニュー */}
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2">
+        {floatingMenuOpen && (
+          <div className="flex flex-col items-end gap-2 mb-1">
+            {/* 管理者状態に応じてログイン/ログアウトを切り替え */}
+            {isAdmin ? (
+              <button onClick={handleAdminLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: '#ffffff', color: '#000000', border: '1px solid #000000', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>👤</span>管理者ログアウト
+              </button>
+            ) : (
+              <Link href="/admin/login" onClick={() => setFloatingMenuOpen(false)} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: '#ffffff', color: '#000000', border: '1px solid #000000', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>🔐</span>管理者ログイン
+              </Link>
+            )}
+            <button onClick={handleSiteLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: '#ffffff', color: '#ff2200', border: '1px solid #000000', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+              <span>🚪</span>ログアウト
+            </button>
+          </div>
+        )}
+        <button onClick={() => setFloatingMenuOpen((v) => !v)} className="w-12 h-12 text-xl hover:opacity-80 transition-opacity flex items-center justify-center" style={{ background: '#000000', color: '#ffe600', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+          {floatingMenuOpen ? '✕' : '⚙️'}
+        </button>
+      </div>
     </div>
   )
 }

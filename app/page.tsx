@@ -93,6 +93,9 @@ export default function Home() {
     e.preventDefault(); const trimmed = editNameInput.trim(); if (!trimmed) return
     localStorage.setItem(VOTER_NAME_KEY, trimmed); setVoterName(trimmed); setEditingName(false)
   }
+  const handleAdminLogout = () => {
+    localStorage.removeItem('isAdmin'); setIsAdmin(false); setFloatingMenuOpen(false)
+  }
   const handleSiteLogout = () => {
     sessionStorage.removeItem(SITE_AUTH_KEY); setSiteAuthed(false); setFloatingMenuOpen(false)
   }
@@ -240,9 +243,16 @@ export default function Home() {
       <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2">
         {floatingMenuOpen && (
           <div className="flex flex-col items-end gap-2 mb-1">
-            <Link href="/admin/login" onClick={() => setFloatingMenuOpen(false)} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-              <span>🔐</span>管理者ログイン
-            </Link>
+            {/* 管理者状態に応じてログイン/ログアウトを切り替え */}
+            {isAdmin ? (
+              <button onClick={handleAdminLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>👤</span>管理者ログアウト
+              </button>
+            ) : (
+              <Link href="/admin/login" onClick={() => setFloatingMenuOpen(false)} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>🔐</span>管理者ログイン
+              </Link>
+            )}
             <button onClick={handleSiteLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuDanger, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
               <span>🚪</span>ログアウト
             </button>
