@@ -44,6 +44,8 @@ export default function PollPage() {
   const [showVoterList, setShowVoterList] = useState(false)
   const [animSeconds, setAnimSeconds] = useState(5)
   const [fontKey, setFontKey] = useState<'system' | 'anton' | 'bebas' | 'noto' | 'mplus'>('system')
+  // 0票バーを消して票ありバーで100%を埋める「再配置」フェーズ中はtransitionをなしにする
+  const [collapsing, setCollapsing] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const FONTS = [
@@ -57,9 +59,15 @@ export default function PollPage() {
 
   const storageKey = `voted-${id}`
   const totalVotes = voteCounts.reduce((sum, v) => sum + v.count, 0)
+  // 表示テキスト用（Math.round: 33/33/33のように自然な数値を表示）
   const realPercents = options.map((opt) => {
     const count = voteCounts.find((v) => v.option_id === opt.id)?.count ?? 0
     return totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
+  })
+  // バー幅用（端数なしの正確な値: 合計が必ず100%になりグラフに黒い余白が生まれない）
+  const exactPercents = options.map((opt) => {
+    const count = voteCounts.find((v) => v.option_id === opt.id)?.count ?? 0
+    return totalVotes > 0 ? (count / totalVotes) * 100 : 0
   })
 
   const fetchVotes = async () => {
@@ -118,15 +126,13 @@ export default function PollPage() {
     const count = options.length; if (count === 0) return
     setPhase('suspense')
     let frame = 0
-    setDisplayPercents(patternPercents(frame, count))
+    let lastPercents = patternPercents(frame, count)
+    setDisplayPercents(lastPercents)
     const TOTAL_MS = animSeconds * 1000
-    const SLOW_START_MS = TOTAL_MS * 0.7  // 70%まで通常速度
     let elapsed = 0
 
     const tick = () => {
       const progress = elapsed / TOTAL_MS
-      // 0→80%: sin波で100〜300msを行き来しながら加速・減速を繰り返す
-      // 80→100%: 30msまで一気に加速して爆速で終わる
       const interval = progress < 0.8
         ? 100 + 100 * Math.abs(Math.sin(progress * Math.PI * 5))
         : 100 - (100 - 30) * ((progress - 0.8) / 0.2)
@@ -136,10 +142,24 @@ export default function PollPage() {
         frame++
         if (elapsed >= TOTAL_MS) {
           intervalRef.current = null
-          setDisplayPercents(realPercents)
-          setPhase('revealed')
+
+          // Step1: 0票バーを0にして票ありバーの幅を100%に再配置（transitionなし・黒余白を防ぐ）
+          const votedSum = lastPercents.reduce((s, w, i) => s + (exactPercents[i] > 0 ? w : 0), 0)
+          const redistributed = lastPercents.map((w, i) =>
+            exactPercents[i] === 0 ? 0 : votedSum > 0 ? (w / votedSum) * 100 : 0
+          )
+          setCollapsing(true)
+          setDisplayPercents(redistributed)
+
+          // Step2: 1フレーム後にtransitionを有効にして最終値へアニメーション
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            setCollapsing(false)
+            setDisplayPercents(exactPercents)
+            setPhase('revealed')
+          }))
         } else {
-          setDisplayPercents(patternPercents(frame, count))
+          lastPercents = patternPercents(frame, count)
+          setDisplayPercents(lastPercents)
           tick()
         }
       }, interval)
@@ -175,26 +195,36 @@ export default function PollPage() {
                 ? 100 / options.length
                 : displayPercents[i] ?? 0
               const isRevealed = phase === 'revealed'
+
+              // collapsing以降は0票バーをDOMから除去（opacity:0でも場所を占めて黒くなるため）
+              if ((collapsing || isRevealed) && exactPercents[i] === 0) return null
+
               return (
                 <div
                   key={opt.id}
                   className="relative h-full flex flex-col justify-end pb-4 px-2 overflow-hidden"
                   style={{
                     width: `${percent}%`,
+                    minWidth: 0,
                     background: color,
                     opacity: phase === 'ready' ? 0.3 : percent === 0 ? 0 : 1,
                     pointerEvents: percent === 0 ? 'none' : undefined,
-                    transition: isRevealed
-                      ? 'width 1.2s ease-out, opacity 0.3s ease'
-                      : 'width 0.12s ease-in-out, opacity 0.3s ease',
-                    borderLeft: i > 0 ? '3px solid #111111' : 'none',
+                    // collapsing中はtransitionなしで即座に再配置し、その後1.2sでアニメーション
+                    transition: collapsing
+                      ? 'none'
+                      : isRevealed
+                        ? percent === 0
+                          ? 'width 1.2s ease-out, opacity 0s'
+                          : 'width 1.2s ease-out, opacity 0.3s ease'
+                        : 'width 0.12s ease-in-out, opacity 0.3s ease',
+                    borderLeft: i > 0 && percent > 0 ? '3px solid #111111' : 'none',
                   }}
                 >
                   {phase !== 'ready' && (
                     <>
                       {isRevealed && <div className="shine-overlay" />}
                       <p className="relative font-black text-white leading-tight truncate" style={{ fontSize: '2.2rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', fontFamily: graphFont }}>{opt.text}</p>
-                      <p className="relative font-black text-white" style={{ fontSize: '3.15rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1, fontFamily: graphFont }}>{percent}%</p>
+                      <p className="relative font-black text-white" style={{ fontSize: '3.15rem', textShadow: '0 1px 3px rgba(0,0,0,0.5)', lineHeight: 1, fontFamily: graphFont }}>{Math.round(percent)}%</p>
                     </>
                   )}
                 </div>
@@ -214,7 +244,7 @@ export default function PollPage() {
                   <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
                   <span className="font-black" style={{ color: '#ffffff' }}>{opt.text}</span>
                   {phase === 'revealed' && (
-                    <><span className="font-black text-lg" style={{ color }}>{percent}%</span><span className="text-sm" style={{ color: '#888888' }}>({count}票)</span></>
+                    <><span className="font-black text-lg" style={{ color }}>{realPercents[i]}%</span><span className="text-sm" style={{ color: '#888888' }}>({count}票)</span></>
                   )}
                 </div>
               )

@@ -164,7 +164,7 @@ export default function KattenPage() {
         {/* メモ・現在の対象を横並び */}
         <div className="flex gap-3 items-stretch">
           {/* 現在の対象 */}
-          <div style={{ background: '#000', minWidth: '120px' }} className="px-4 py-5 text-center flex flex-col justify-center flex-shrink-0">
+          <div style={{ background: '#000' }} className="px-4 py-5 text-center flex flex-col justify-center flex-1">
             <p className="text-xs font-black mb-2" style={{ color: '#ffe600', letterSpacing: '0.15em' }}>現在の対象</p>
             {currentSelected
               ? <p className="text-2xl font-black" style={{ color: '#ffe600' }}>{currentSelected}</p>
