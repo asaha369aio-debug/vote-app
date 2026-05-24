@@ -131,8 +131,8 @@ export default function TapPage() {
   const totalBytes = pads.reduce((sum, p) => sum + p.size, 0)
   const storageLabel =
     totalBytes >= 1024 ** 3
-      ? `${(totalBytes / 1024 ** 3).toFixed(2)} GB`
-      : `${(totalBytes / 1024 ** 2).toFixed(1)} MB`
+      ? `${(totalBytes / 1024 ** 3).toFixed(3)} GB`
+      : `${(totalBytes / 1024 ** 2).toFixed(3)} MB`
 
   // グリッドを5の倍数に揃えて空セルで埋める（最低1行 = 5マス）
   const totalCells = Math.max(COLS, Math.ceil(pads.length / COLS) * COLS)
