@@ -26,7 +26,8 @@ const th = {
 
 // パッドの型定義
 type Pad = {
-  name: string
+  name: string      // 表示用ファイル名（日本語など元の文字列）
+  path: string      // Storage上のパス（URLエンコード済み、キーとして使用）
   url: string
   size: number
   playing: boolean
@@ -67,7 +68,13 @@ export default function TapPage() {
       .filter((f) => f.name !== '.emptyFolderPlaceholder')
       .map((f) => {
         const { data } = supabase.storage.from(BUCKET).getPublicUrl(f.name)
-        return { name: f.name, url: data.publicUrl, size: f.metadata?.size ?? 0, playing: false }
+        return {
+          name: decodeURIComponent(f.name),  // 表示用に日本語へ戻す
+          path: f.name,                       // Storage上のエンコード済みパス
+          url: data.publicUrl,
+          size: f.metadata?.size ?? 0,
+          playing: false,
+        }
       })
 
     setPads(newPads)
@@ -82,7 +89,9 @@ export default function TapPage() {
     setUploadError('')
 
     for (const file of files) {
-      const { error } = await supabase.storage.from(BUCKET).upload(file.name, file, {
+      // 日本語などのマルチバイト文字をURLセーフなパスに変換してアップロード
+      const safePath = encodeURIComponent(file.name)
+      const { error } = await supabase.storage.from(BUCKET).upload(safePath, file, {
         upsert: false,
       })
       if (error) { setUploadError(`アップロード失敗: ${file.name}（${error.message}）`); break }
@@ -95,7 +104,7 @@ export default function TapPage() {
 
   // AudioElementを生成してイベントを登録（初回のみ）
   const getOrCreateAudio = (pad: Pad): HTMLAudioElement => {
-    let audio = audioRefs.current.get(pad.name)
+    let audio = audioRefs.current.get(pad.path)
     if (audio) return audio
 
     audio = new Audio(pad.url)
@@ -104,7 +113,7 @@ export default function TapPage() {
     audio.onloadedmetadata = () => {
       setTimes((prev) => {
         const next = new Map(prev)
-        next.set(pad.name, { current: 0, duration: audio!.duration })
+        next.set(pad.path, { current: 0, duration: audio!.duration })
         return next
       })
     }
@@ -113,22 +122,22 @@ export default function TapPage() {
     audio.ontimeupdate = () => {
       setTimes((prev) => {
         const next = new Map(prev)
-        next.set(pad.name, { current: audio!.currentTime, duration: audio!.duration || 0 })
+        next.set(pad.path, { current: audio!.currentTime, duration: audio!.duration || 0 })
         return next
       })
     }
 
     // 再生終了時に状態をリセット
     audio.onended = () => {
-      setPads((prev) => prev.map((p) => (p.name === pad.name ? { ...p, playing: false } : p)))
+      setPads((prev) => prev.map((p) => (p.path === pad.path ? { ...p, playing: false } : p)))
       setTimes((prev) => {
         const next = new Map(prev)
-        next.set(pad.name, { current: 0, duration: audio!.duration || 0 })
+        next.set(pad.path, { current: 0, duration: audio!.duration || 0 })
         return next
       })
     }
 
-    audioRefs.current.set(pad.name, audio)
+    audioRefs.current.set(pad.path, audio)
     return audio
   }
 
@@ -139,11 +148,11 @@ export default function TapPage() {
     if (pad.playing) {
       audio.pause()
       audio.currentTime = 0
-      setPads((prev) => prev.map((p) => (p.name === pad.name ? { ...p, playing: false } : p)))
+      setPads((prev) => prev.map((p) => (p.path === pad.path ? { ...p, playing: false } : p)))
     } else {
       audio.currentTime = 0
       audio.play()
-      setPads((prev) => prev.map((p) => (p.name === pad.name ? { ...p, playing: true } : p)))
+      setPads((prev) => prev.map((p) => (p.path === pad.path ? { ...p, playing: true } : p)))
     }
   }
 
@@ -154,7 +163,7 @@ export default function TapPage() {
     audio.currentTime = newTime
     setTimes((prev) => {
       const next = new Map(prev)
-      next.set(pad.name, { current: newTime, duration: audio.duration || 0 })
+      next.set(pad.path, { current: newTime, duration: audio.duration || 0 })
       return next
     })
   }
@@ -227,7 +236,7 @@ export default function TapPage() {
               {cells.map((pad, idx) =>
                 pad ? (
                   <div
-                    key={pad.name}
+                    key={pad.path}
                     style={{
                       background: pad.playing ? th.playingBg : th.cardBg,
                       border: `3px solid ${pad.playing ? th.playingBorder : th.cardBorder}`,
@@ -280,9 +289,9 @@ export default function TapPage() {
                       <input
                         type="range"
                         min={0}
-                        max={times.get(pad.name)?.duration || 0}
+                        max={times.get(pad.path)?.duration || 0}
                         step={0.01}
-                        value={times.get(pad.name)?.current || 0}
+                        value={times.get(pad.path)?.current || 0}
                         onChange={(e) => handleSeek(e, pad)}
                         style={{
                           width: '100%',
