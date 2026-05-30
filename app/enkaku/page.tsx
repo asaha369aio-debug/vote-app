@@ -25,7 +25,7 @@ export default function EnkakuPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)  // 現在表示中のページ番号
+  const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -43,6 +43,18 @@ export default function EnkakuPage() {
       }
       setPdfLoading(false)
     })
+
+    // DBから現在のページ番号を取得
+    supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
+      .then(({ data }) => { if (data) setCurrentPage(data.current_page) })
+
+    // リアルタイムでページ変更を全員に反映
+    const ch = supabase.channel('pdf-page')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pdf_settings' }, (payload) => {
+        setCurrentPage(payload.new.current_page)
+      }).subscribe()
+
+    return () => { supabase.removeChannel(ch) }
   }, [router])
 
   // 管理者のみ: PDFをStorageにアップロード（upsertで上書き）
@@ -54,9 +66,15 @@ export default function EnkakuPage() {
     const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
     // キャッシュバスティング用タイムスタンプをクエリに付与し、ページを先頭に戻す
     setPdfUrl(data.publicUrl + '?t=' + Date.now())
-    setCurrentPage(1)
+    await supabase.from('pdf_settings').update({ current_page: 1 }).eq('id', 1)
     e.target.value = ''
     setPdfUploading(false)
+  }
+
+  // 管理者のみ: ページ番号をDBに書き込み → リアルタイムで全員に反映
+  const goToPage = async (page: number) => {
+    if (page < 1) return
+    await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
   // PDFのiframe src: ページ番号・スクロールバー・ツールバーを制御するパラメータ付き
@@ -117,14 +135,14 @@ export default function EnkakuPage() {
               />
             </div>
 
-            {/* 管理者のみ: ページ番号表示 + 次のページボタン */}
+            {/* 管理者のみ: ページ番号表示 + ページ送りボタン */}
             {isAdmin && (
               <div className="flex items-center gap-4">
                 <span className="font-black text-sm" style={{ color: th.mutedColor }}>
                   {currentPage} ページ
                 </span>
                 <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  onClick={() => goToPage(currentPage + 1)}
                   className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
                   style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000', fontSize: '1rem' }}
                 >
@@ -132,7 +150,7 @@ export default function EnkakuPage() {
                 </button>
                 {currentPage > 1 && (
                   <button
-                    onClick={() => setCurrentPage((p) => p - 1)}
+                    onClick={() => goToPage(currentPage - 1)}
                     className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
                     style={{ background: '#fff', color: th.titleColor, border: '2px solid #000', fontSize: '1rem' }}
                   >
