@@ -48,13 +48,19 @@ export default function EnkakuPage() {
     supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
       .then(({ data }) => { if (data) setCurrentPage(data.current_page) })
 
-    // リアルタイムでページ変更を全員に反映
+    // Realtimeでページ変更を即時反映
     const ch = supabase.channel('pdf-page')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pdf_settings' }, (payload) => {
         setCurrentPage(payload.new.current_page)
       }).subscribe()
 
-    return () => { supabase.removeChannel(ch) }
+    // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
+    const poll = setInterval(async () => {
+      const { data } = await supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
+      if (data) setCurrentPage(data.current_page)
+    }, 2000)
+
+    return () => { supabase.removeChannel(ch); clearInterval(poll) }
   }, [router])
 
   // 管理者のみ: PDFをStorageにアップロード（upsertで上書き）
