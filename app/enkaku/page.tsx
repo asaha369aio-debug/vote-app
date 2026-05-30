@@ -71,9 +71,10 @@ export default function EnkakuPage() {
     setPdfUploading(false)
   }
 
-  // 管理者のみ: ページ番号をDBに書き込み → リアルタイムで全員に反映
+  // 管理者のみ: ローカルを即時更新してからDBに書き込み → リアルタイムで全員に反映
   const goToPage = async (page: number) => {
     if (page < 1) return
+    setCurrentPage(page)  // 楽観的更新（管理者画面は即座に切り替わる）
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
