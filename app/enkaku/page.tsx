@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase'
 const PDF_BUCKET = 'pdf-display'
 const PDF_FILE = 'current.pdf'
 
+// iframeに渡すPDFパラメータ: ツールバー非表示・1ページ全体をフィット表示
+const PDF_PARAMS = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit&page=1'
+
 // テーマカラー
 const th = {
   pageBg: '#ffe600',
@@ -22,7 +25,8 @@ const th = {
 export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)  // PDFが設定済みかどうか判定用
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)  // 設定済みPDFの公開URL
+  const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -33,12 +37,13 @@ export default function EnkakuPage() {
 
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
 
-    // PDFが存在するか確認（管理者ボタンの表示制御のみに使用）
+    // StorageにPDFが存在すれば公開URLを取得
     supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
       if (data?.some((f) => f.name === PDF_FILE)) {
         const { data: urlData } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
         setPdfUrl(urlData.publicUrl)
       }
+      setPdfLoading(false)
     })
   }, [router])
 
@@ -89,24 +94,45 @@ export default function EnkakuPage() {
         </div>
       </header>
 
-      {/* メインコンテンツ */}
-      <main className="max-w-2xl mx-auto px-6 py-16 flex flex-col items-center gap-6">
-        <p className="text-6xl">📡</p>
-        <h1 className="text-3xl font-black text-center" style={{ color: th.titleColor }}>遠隔加点</h1>
+      <main className="max-w-2xl mx-auto px-6 py-8 space-y-4">
+        {pdfLoading ? (
+          // 読み込み中
+          <div className="flex items-center justify-center py-16">
+            <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
+          </div>
+        ) : pdfUrl ? (
+          <>
+            {/* PDF表示: スクロール不可・1ページ全体をフィット・縦300px固定 */}
+            <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '300px' }}>
+              <iframe
+                src={pdfUrl + PDF_PARAMS}
+                style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none' }}
+                title="PDF表示"
+              />
+            </div>
 
-        {/* 管理者のみ: PDFページへの遷移ボタン */}
-        {isAdmin && (
-          pdfUrl ? (
-            <Link
-              href="/pdf"
-              className="font-black px-8 py-3 hover:opacity-80 transition-opacity"
-              style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44', fontSize: '1rem' }}
-            >
-              PDFを開く →
-            </Link>
-          ) : (
-            <p className="text-sm font-bold" style={{ color: th.mutedColor }}>「読み込み」ボタンからPDFを設定してください</p>
-          )
+            {/* 管理者のみ: PDFフルページへの遷移ボタン */}
+            {isAdmin && (
+              <div>
+                <Link
+                  href="/pdf"
+                  className="inline-block font-black px-8 py-3 hover:opacity-80 transition-opacity"
+                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44', fontSize: '1rem' }}
+                >
+                  PDFを開く →
+                </Link>
+              </div>
+            )}
+          </>
+        ) : (
+          // PDF未設定時のプレースホルダー
+          <div className="flex flex-col items-center gap-4 py-16">
+            <p className="text-5xl">📡</p>
+            <p className="font-black text-lg" style={{ color: th.titleColor }}>遠隔加点</p>
+            {isAdmin && (
+              <p className="text-sm font-bold" style={{ color: th.mutedColor }}>「読み込み」ボタンからPDFを設定してください</p>
+            )}
+          </div>
         )}
       </main>
     </div>
