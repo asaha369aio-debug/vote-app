@@ -140,8 +140,8 @@ export default function EnkakuPage() {
                 scrolling="no"
                 style={{
                   width: '100%',
-                  height: isAdmin ? '220px' : '265px',
-                  marginTop: isAdmin ? '0' : '-45px',
+                  height: isAdmin ? '220px' : '253px',
+                  marginTop: isAdmin ? '0' : '-33px',
                   border: 'none',
                   pointerEvents: 'none',
                   display: 'block',
