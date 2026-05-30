@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -36,10 +36,6 @@ const FEATURES = [
 // 管理者がオン/オフできる機能キー
 const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'tap']
 
-// PDF表示用Storageバケット・固定ファイル名
-const PDF_BUCKET = 'pdf-display'
-const PDF_FILE = 'current.pdf'
-
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [voterName, setVoterName] = useState<string | null>(null)
@@ -53,9 +49,6 @@ export default function Home() {
   const [sitePasswordLoading, setSitePasswordLoading] = useState(false)
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
   const [flags, setFlags] = useState<Record<string, boolean>>({})  // 機能の表示フラグ
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)        // 表示中のPDF公開URL
-  const [pdfUploading, setPdfUploading] = useState(false)
-  const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const authed = sessionStorage.getItem(SITE_AUTH_KEY) === '1'
@@ -73,14 +66,6 @@ export default function Home() {
         setFlags(map)
       })
 
-    // PDFが設定済みなら公開URLを取得して表示
-    supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
-      if (data?.some((f) => f.name === PDF_FILE)) {
-        const { data: urlData } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
-        setPdfUrl(urlData.publicUrl)
-      }
-    })
-
     // リアルタイムでフラグ変更を反映
     const ch = supabase.channel('feature-flags')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feature_flags' }, (payload) => {
@@ -89,19 +74,6 @@ export default function Home() {
 
     return () => { supabase.removeChannel(ch) }
   }, [])
-
-  // 管理者のみ: PDFをSupabase Storageにアップロード（upsertで上書き）
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setPdfUploading(true)
-    await supabase.storage.from(PDF_BUCKET).upload(PDF_FILE, file, { upsert: true })
-    const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
-    // キャッシュバスティング用タイムスタンプをクエリに付与
-    setPdfUrl(data.publicUrl + '?t=' + Date.now())
-    e.target.value = ''
-    setPdfUploading(false)
-  }
 
   const toggleFlag = async (key: string) => {
     const next = !flags[key]
@@ -200,58 +172,6 @@ export default function Home() {
       </header>
 
       <main className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-        {/* PDFビューアセクション（PDFがある場合は全員に表示、ボタンは管理者のみ） */}
-        {(pdfUrl || isAdmin) && (
-          <div style={{ background: th.cardBg, border: '2.5px solid #000' }}>
-            {/* 管理者専用コントロールバー */}
-            {isAdmin && (
-              <div
-                className="flex items-center gap-3 px-4 py-3 flex-wrap"
-                style={{ borderBottom: pdfUrl ? '2px solid #000' : 'none', background: '#f5f5f5' }}
-              >
-                <span className="text-xs font-black" style={{ color: th.mutedColor }}>📄 PDF表示</span>
-                <button
-                  onClick={() => pdfFileInputRef.current?.click()}
-                  disabled={pdfUploading}
-                  className="font-black text-xs px-4 py-1.5 hover:opacity-80 transition-opacity disabled:opacity-50"
-                  style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000' }}
-                >
-                  {pdfUploading ? '読み込み中...' : '読み込み'}
-                </button>
-                {pdfUrl && (
-                  <Link
-                    href="/pdf"
-                    className="font-black text-xs px-4 py-1.5 hover:opacity-80 transition-opacity"
-                    style={{ background: '#0033cc', color: '#fff', border: '2px solid #0033cc' }}
-                  >
-                    画面遷移 →
-                  </Link>
-                )}
-                <input
-                  ref={pdfFileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  style={{ display: 'none' }}
-                  onChange={handlePdfUpload}
-                />
-              </div>
-            )}
-            {/* PDFプレビュー */}
-            {pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                style={{ width: '100%', height: '420px', display: 'block', border: 'none' }}
-                title="PDF表示"
-              />
-            ) : (
-              // 管理者向け: PDFがまだ未設定の場合のプレースホルダー
-              <div className="px-4 py-10 text-center">
-                <p className="text-sm font-black" style={{ color: th.mutedColor }}>「読み込み」ボタンからPDFを選択してください</p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* 管理者: 機能の表示/非表示コントロール */}
         {isAdmin && (
           <div style={{ background: '#000', border: '2.5px solid #000' }} className="p-4">
