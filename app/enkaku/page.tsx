@@ -23,6 +23,8 @@ export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [voterName, setVoterName] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [editNameInput, setEditNameInput] = useState('')
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
@@ -65,6 +67,16 @@ export default function EnkakuPage() {
     return () => { supabase.removeChannel(ch); clearInterval(poll) }
   }, [router])
 
+  // ユーザー名を編集して保存
+  const handleNameEdit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = editNameInput.trim()
+    if (!trimmed) return
+    localStorage.setItem('voterName', trimmed)
+    setVoterName(trimmed)
+    setEditingName(false)
+  }
+
   // 管理者のみ: PDFをStorageにアップロード（upsertで上書き）
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -102,12 +114,33 @@ export default function EnkakuPage() {
             <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>遠隔加点</span>
           </div>
 
-          {/* ユーザー名表示 */}
+          {/* ユーザー名表示・編集 */}
           <div className="flex items-center gap-2">
-            {voterName && (
-              <span className="text-sm font-black px-3 py-1" style={{ border: '1px solid #000', borderRadius: '999px' }}>
-                👤 {voterName}
-              </span>
+            {editingName ? (
+              <form onSubmit={handleNameEdit} className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={editNameInput}
+                  onChange={(e) => setEditNameInput(e.target.value)}
+                  className="w-24 text-sm px-2 py-1 focus:outline-none"
+                  style={{ border: '1px solid #000', background: 'rgba(0,0,0,0.08)' }}
+                  placeholder="新しい名前"
+                  autoFocus
+                  maxLength={20}
+                />
+                <button type="submit" className="text-xs font-black px-2 py-1 hover:opacity-80" style={{ background: 'rgba(0,0,0,0.12)' }}>変更</button>
+                <button type="button" onClick={() => setEditingName(false)} className="text-xs px-1 hover:opacity-80">✕</button>
+              </form>
+            ) : (
+              voterName && (
+                <button
+                  onClick={() => { setEditNameInput(voterName); setEditingName(true) }}
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 hover:opacity-70 transition-opacity"
+                  style={{ border: '1px solid #000', borderRadius: '999px' }}
+                >
+                  <span>👤</span><span className="font-black">{voterName}</span><span className="text-xs opacity-40">✎</span>
+                </button>
+              )
             )}
           </div>
 
