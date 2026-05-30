@@ -22,6 +22,7 @@ const th = {
 export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [voterName, setVoterName] = useState('')
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
@@ -34,6 +35,7 @@ export default function EnkakuPage() {
     if (!localStorage.getItem('voterName')) { router.replace('/'); return }
 
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
+    setVoterName(localStorage.getItem('voterName') ?? '')
 
     // StorageにPDFが存在すれば公開URLを取得
     supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
@@ -98,6 +100,15 @@ export default function EnkakuPage() {
             <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg">←</Link>
             <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
             <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>遠隔加点</span>
+          </div>
+
+          {/* ユーザー名表示 */}
+          <div className="flex items-center gap-2">
+            {voterName && (
+              <span className="text-sm font-black px-3 py-1" style={{ border: '1px solid #000', borderRadius: '999px' }}>
+                👤 {voterName}
+              </span>
+            )}
           </div>
 
           {/* 管理者専用: PDF読み込みボタン */}
