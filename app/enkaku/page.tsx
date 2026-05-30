@@ -111,7 +111,7 @@ export default function EnkakuPage() {
           // PDFをiframeで全画面表示
           <iframe
             src={pdfUrl}
-            style={{ width: '100%', flex: 1, border: 'none', minHeight: 'calc(100vh - 67px)' }}
+            style={{ width: '100%', height: '300px', border: 'none' }}
             title="PDF表示"
           />
         ) : (
