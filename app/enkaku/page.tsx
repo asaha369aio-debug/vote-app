@@ -22,8 +22,7 @@ const th = {
 export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)   // 表示中のPDF公開URL
-  const [pdfLoading, setPdfLoading] = useState(true)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)  // PDFが設定済みかどうか判定用
   const [pdfUploading, setPdfUploading] = useState(false)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -34,13 +33,12 @@ export default function EnkakuPage() {
 
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
 
-    // StorageにPDFが存在すれば公開URLを取得
+    // PDFが存在するか確認（管理者ボタンの表示制御のみに使用）
     supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
       if (data?.some((f) => f.name === PDF_FILE)) {
         const { data: urlData } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
         setPdfUrl(urlData.publicUrl)
       }
-      setPdfLoading(false)
     })
   }, [router])
 
@@ -68,7 +66,7 @@ export default function EnkakuPage() {
             <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>遠隔加点</span>
           </div>
 
-          {/* 管理者専用ボタン群 */}
+          {/* 管理者専用: PDF読み込みボタン */}
           {isAdmin && (
             <div className="flex items-center gap-2">
               <button
@@ -91,45 +89,24 @@ export default function EnkakuPage() {
         </div>
       </header>
 
-      {/* PDFビューア */}
-      <main style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 67px)' }}>
-        {pdfLoading ? (
-          // 読み込み中
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
-          </div>
-        ) : pdfUrl ? (
-          // pointer-events: none でスクロール・操作を無効化し、管理者ボタンを下に配置
-          <>
-            <iframe
-              src={pdfUrl}
-              style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none' }}
-              title="PDF表示"
-            />
-            {/* 管理者のみ: フルスクリーンページへの遷移ボタン */}
-            {isAdmin && (
-              <div className="px-6 py-4">
-                <Link
-                  href="/pdf"
-                  className="inline-block font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
-                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44' }}
-                >
-                  フルスクリーンで開く →
-                </Link>
-              </div>
-            )}
-          </>
-        ) : (
-          // PDF未設定時のプレースホルダー
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-            <p className="text-5xl">📡</p>
-            <p className="font-black text-lg" style={{ color: th.titleColor }}>遠隔加点</p>
-            {isAdmin ? (
-              <p className="text-sm font-bold" style={{ color: th.mutedColor }}>「読み込み」ボタンからPDFを設定してください</p>
-            ) : (
-              <p className="text-sm font-bold" style={{ color: th.mutedColor }}>PDFがまだ設定されていません</p>
-            )}
-          </div>
+      {/* メインコンテンツ */}
+      <main className="max-w-2xl mx-auto px-6 py-16 flex flex-col items-center gap-6">
+        <p className="text-6xl">📡</p>
+        <h1 className="text-3xl font-black text-center" style={{ color: th.titleColor }}>遠隔加点</h1>
+
+        {/* 管理者のみ: PDFページへの遷移ボタン */}
+        {isAdmin && (
+          pdfUrl ? (
+            <Link
+              href="/pdf"
+              className="font-black px-8 py-3 hover:opacity-80 transition-opacity"
+              style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44', fontSize: '1rem' }}
+            >
+              PDFを開く →
+            </Link>
+          ) : (
+            <p className="text-sm font-bold" style={{ color: th.mutedColor }}>「読み込み」ボタンからPDFを設定してください</p>
+          )
         )}
       </main>
     </div>
