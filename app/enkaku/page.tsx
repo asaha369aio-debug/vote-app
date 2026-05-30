@@ -192,32 +192,36 @@ export default function EnkakuPage() {
                 }}
                 title={`PDF ${currentPage}ページ目`}
               />
+
+              {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
+              {isAdmin && (
+                <div
+                  className="flex items-center gap-2"
+                  style={{ position: 'absolute', top: '8px', right: '8px' }}
+                >
+                  <span className="font-black text-xs px-2 py-1" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
+                    {currentPage}p
+                  </span>
+                  {currentPage > 1 && (
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
+                      style={{ background: 'rgba(255,255,255,0.9)', color: th.titleColor, border: '1.5px solid #000' }}
+                    >
+                      ←
+                    </button>
+                  )}
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
+                    style={{ background: 'rgba(0,0,0,0.85)', color: '#ffe600', border: '1.5px solid #000' }}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* 管理者のみ: ページ番号表示 + ページ送りボタン */}
-            {isAdmin && (
-              <div className="flex items-center gap-4">
-                <span className="font-black text-sm" style={{ color: th.mutedColor }}>
-                  {currentPage} ページ
-                </span>
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
-                  style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000', fontSize: '1rem' }}
-                >
-                  次のページ →
-                </button>
-                {currentPage > 1 && (
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
-                    style={{ background: '#fff', color: th.titleColor, border: '2px solid #000', fontSize: '1rem' }}
-                  >
-                    ← 前のページ
-                  </button>
-                )}
-              </div>
-            )}
           </>
         ) : (
           // PDF未設定時のプレースホルダー
