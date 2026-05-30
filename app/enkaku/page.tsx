@@ -10,9 +10,6 @@ import { supabase } from '@/lib/supabase'
 const PDF_BUCKET = 'pdf-display'
 const PDF_FILE = 'current.pdf'
 
-// iframeに渡すPDFパラメータ: ツールバー非表示・1ページ全体をフィット表示
-const PDF_PARAMS = '#toolbar=0&navpanes=0&scrollbar=0&view=Fit&page=1'
-
 // テーマカラー
 const th = {
   pageBg: '#ffe600',
@@ -25,9 +22,10 @@ const th = {
 export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)  // 設定済みPDFの公開URL
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)  // 現在表示中のページ番号
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -54,11 +52,17 @@ export default function EnkakuPage() {
     setPdfUploading(true)
     await supabase.storage.from(PDF_BUCKET).upload(PDF_FILE, file, { upsert: true })
     const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(PDF_FILE)
-    // キャッシュバスティング用タイムスタンプをクエリに付与
+    // キャッシュバスティング用タイムスタンプをクエリに付与し、ページを先頭に戻す
     setPdfUrl(data.publicUrl + '?t=' + Date.now())
+    setCurrentPage(1)
     e.target.value = ''
     setPdfUploading(false)
   }
+
+  // PDFのiframe src: ページ番号・スクロールバー・ツールバーを制御するパラメータ付き
+  const iframeSrc = pdfUrl
+    ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`
+    : ''
 
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
@@ -96,31 +100,45 @@ export default function EnkakuPage() {
 
       <main className="max-w-2xl mx-auto px-6 py-8 space-y-4">
         {pdfLoading ? (
-          // 読み込み中
           <div className="flex items-center justify-center py-16">
             <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
           </div>
         ) : pdfUrl ? (
           <>
-            {/* PDF表示: スクロール不可・1ページ全体をフィット・縦300px固定 */}
-            <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '300px' }}>
+            {/* PDF表示エリア: overflow hidden + pointer-events none でスクロール完全無効 */}
+            <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '300px', position: 'relative' }}>
+              {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
               <iframe
-                src={pdfUrl + PDF_PARAMS}
-                style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none' }}
-                title="PDF表示"
+                key={currentPage}
+                src={iframeSrc}
+                scrolling="no"
+                style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none', display: 'block' }}
+                title={`PDF ${currentPage}ページ目`}
               />
             </div>
 
-            {/* 管理者のみ: PDFフルページへの遷移ボタン */}
+            {/* 管理者のみ: ページ番号表示 + 次のページボタン */}
             {isAdmin && (
-              <div>
-                <Link
-                  href="/pdf"
-                  className="inline-block font-black px-8 py-3 hover:opacity-80 transition-opacity"
-                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44', fontSize: '1rem' }}
+              <div className="flex items-center gap-4">
+                <span className="font-black text-sm" style={{ color: th.mutedColor }}>
+                  {currentPage} ページ
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
+                  style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000', fontSize: '1rem' }}
                 >
-                  PDFを開く →
-                </Link>
+                  次のページ →
+                </button>
+                {currentPage > 1 && (
+                  <button
+                    onClick={() => setCurrentPage((p) => p - 1)}
+                    className="font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
+                    style={{ background: '#fff', color: th.titleColor, border: '2px solid #000', fontSize: '1rem' }}
+                  >
+                    ← 前のページ
+                  </button>
+                )}
               </div>
             )}
           </>
