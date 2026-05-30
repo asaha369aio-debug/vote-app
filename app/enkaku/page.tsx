@@ -79,15 +79,6 @@ export default function EnkakuPage() {
               >
                 {pdfUploading ? '読み込み中...' : '読み込み'}
               </button>
-              {pdfUrl && (
-                <Link
-                  href="/pdf"
-                  className="font-black text-xs px-4 py-1.5 hover:opacity-80 transition-opacity"
-                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44' }}
-                >
-                  画面遷移 →
-                </Link>
-              )}
               <input
                 ref={pdfFileInputRef}
                 type="file"
@@ -108,12 +99,26 @@ export default function EnkakuPage() {
             <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
           </div>
         ) : pdfUrl ? (
-          // PDFをiframeで全画面表示
-          <iframe
-            src={pdfUrl}
-            style={{ width: '100%', height: '300px', border: 'none' }}
-            title="PDF表示"
-          />
+          // pointer-events: none でスクロール・操作を無効化し、管理者ボタンを下に配置
+          <>
+            <iframe
+              src={pdfUrl}
+              style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none' }}
+              title="PDF表示"
+            />
+            {/* 管理者のみ: フルスクリーンページへの遷移ボタン */}
+            {isAdmin && (
+              <div className="px-6 py-4">
+                <Link
+                  href="/pdf"
+                  className="inline-block font-black px-6 py-2.5 hover:opacity-80 transition-opacity"
+                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #00aa44' }}
+                >
+                  フルスクリーンで開く →
+                </Link>
+              </div>
+            )}
+          </>
         ) : (
           // PDF未設定時のプレースホルダー
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
