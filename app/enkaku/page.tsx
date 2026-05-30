@@ -106,13 +106,13 @@ export default function EnkakuPage() {
         ) : pdfUrl ? (
           <>
             {/* PDF表示エリア: overflow hidden + pointer-events none でスクロール完全無効 */}
-            <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '300px', position: 'relative' }}>
+            <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative' }}>
               {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
               <iframe
                 key={currentPage}
                 src={iframeSrc}
                 scrolling="no"
-                style={{ width: '100%', height: '300px', border: 'none', pointerEvents: 'none', display: 'block' }}
+                style={{ width: '100%', height: '220px', border: 'none', pointerEvents: 'none', display: 'block' }}
                 title={`PDF ${currentPage}ページ目`}
               />
             </div>
