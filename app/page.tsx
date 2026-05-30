@@ -27,13 +27,14 @@ const inputStyle: React.CSSProperties = {
 
 // 全機能の定義（keyはfeature_flagsのkeyと対応）
 const FEATURES = [
-  { key: 'vote',   href: '/vote',   icon: '🗳️', label: '投票', desc: 'リアルタイムで投票・集計',       accent: '#ff2200' },
-  { key: 'katten', href: '/katten', icon: '📊', label: '加点', desc: '対象を選んでリアルタイム加点', accent: '#0033cc' },
-  { key: 'tap',    href: '/tap',    icon: '🎹', label: 'TAP',  desc: '音声ファイルを読み込んでパッド演奏', accent: '#cc00ff' },
+  { key: 'vote',    href: '/vote',    icon: '🗳️', label: '投票',   desc: 'リアルタイムで投票・集計',             accent: '#ff2200' },
+  { key: 'katten',  href: '/katten',  icon: '📊', label: '加点',   desc: '対象を選んでリアルタイム加点',         accent: '#0033cc' },
+  { key: 'enkaku',  href: '/enkaku',  icon: '📡', label: '遠隔加点', desc: '遠隔から対象を選んでリアルタイム加点', accent: '#00aa44' },
+  { key: 'tap',     href: '/tap',     icon: '🎹', label: 'TAP',    desc: '音声ファイルを読み込んでパッド演奏',   accent: '#cc00ff' },
 ]
 
 // 管理者がオン/オフできる機能キー
-const TOGGLEABLE_KEYS = ['vote', 'katten']
+const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'tap']
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)

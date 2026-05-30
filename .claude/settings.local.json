@@ -10,7 +10,31 @@
       "Bash(git commit *)",
       "Bash(git remote *)",
       "Bash(git branch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npx tsc *)",
+      "Skill(update-config)",
+      "Bash(claude usage *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python3 -c \"import sys,json; [print\\(json.dumps\\(json.loads\\(l\\), indent=2\\)[:500]\\) for l in sys.stdin]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(claude --version)",
+      "Bash(claude project *)",
+      "PowerShell(powershell -File \"C:\\\\Users\\\\asa7k\\\\.claude\\\\token-reminder.ps1\")",
+      "PowerShell(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\asa7k\\\\.claude\\\\token-reminder.ps1\"; Write-Host \"Exit code: $LASTEXITCODE\")",
+      "PowerShell(echo '{}' | powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\asa7k\\\\.claude\\\\token-reminder.ps1\"; Write-Host \"Exit code: $LASTEXITCODE\")",
+      "PowerShell(echo '{}' | powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\asa7k\\\\.claude\\\\token-reminder.ps1\"; Write-Host \"Exit: $LASTEXITCODE\")",
+      "Bash(bash --version)",
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(python3 *)",
+      "Bash(chmod +x /c/Users/asa7k/.claude/stop-hook.sh)",
+      "Bash(bash /c/Users/asa7k/.claude/stop-hook.sh)",
+      "Bash(/c/Users/asa7k/AppData/Local/Microsoft/WindowsApps/python3 /c/Users/asa7k/.claude/calc-5h-usage.py)",
+      "PowerShell(Get-Command *)",
+      "Bash(bash /c/Users/asa7k/.claude/statusline-command.sh)",
+      "PowerShell(python \"C:\\\\Users\\\\asa7k\\\\.claude\\\\calc-5h-usage.py\"; Get-Content \"C:\\\\Users\\\\asa7k\\\\.claude\\\\5h-usage.txt\")",
+      "Bash(gh run *)",
+      "Bash(npx vercel *)",
+      "Bash(git *)"
     ]
   }
 }
