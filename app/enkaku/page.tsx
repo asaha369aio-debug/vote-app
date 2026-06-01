@@ -260,7 +260,7 @@ export default function EnkakuPage() {
             {/* 回答者のみ: 回答ボタン */}
             {role === '回答者' && (
               <div className="flex gap-3">
-                {['０', '１', '２', '３'].map((label) => (
+                {['0', '1', '2', '3'].map((label) => (
                   <button
                     key={label}
                     className="flex-1 font-black text-2xl py-4 hover:opacity-80 transition-opacity active:scale-95"
