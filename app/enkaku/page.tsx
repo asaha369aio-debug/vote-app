@@ -257,8 +257,8 @@ export default function EnkakuPage() {
               )}
             </div>
 
-            {/* 回答者のみ: 回答ボタン */}
-            {role === '回答者' && (
+            {/* 審査員のみ: 採点ボタン */}
+            {role === '審査員' && (
               <div className="flex gap-3">
                 {['0', '1', '2', '3'].map((label) => (
                   <button
