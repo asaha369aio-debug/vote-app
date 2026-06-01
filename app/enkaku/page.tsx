@@ -29,6 +29,7 @@ export default function EnkakuPage() {
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfUploading, setPdfUploading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
+  const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,6 +39,8 @@ export default function EnkakuPage() {
 
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
     setVoterName(localStorage.getItem('voterName') ?? '')
+    const savedRole = localStorage.getItem('enkakuRole')
+    if (savedRole === '審査員') setRole('審査員')
 
     // StorageにPDFが存在すれば公開URLを取得
     supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
@@ -66,6 +69,12 @@ export default function EnkakuPage() {
 
     return () => { supabase.removeChannel(ch); clearInterval(poll) }
   }, [router])
+
+  // 役割を切り替えてlocalStorageに保存
+  const handleRoleChange = (newRole: '回答者' | '審査員') => {
+    setRole(newRole)
+    localStorage.setItem('enkakuRole', newRole)
+  }
 
   // ユーザー名を編集して保存
   const handleNameEdit = (e: React.FormEvent) => {
@@ -174,6 +183,32 @@ export default function EnkakuPage() {
           </div>
         ) : pdfUrl ? (
           <>
+            {/* ユーザー名 + 役割切り替えカード */}
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ background: '#fff', border: '2.5px solid #000' }}
+            >
+              <span className="font-black text-sm" style={{ color: th.titleColor }}>
+                👤 {voterName}
+              </span>
+              <div className="flex items-center gap-1">
+                {(['回答者', '審査員'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => handleRoleChange(r)}
+                    className="font-black text-xs px-3 py-1.5 transition-all hover:opacity-80"
+                    style={{
+                      background: role === r ? th.primaryBg : '#eee',
+                      color: role === r ? th.primaryText : '#666',
+                      border: `2px solid ${role === r ? '#000' : '#ccc'}`,
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* PDF表示エリア: overflow hidden + pointer-events none でスクロール完全無効 */}
             <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative' }}>
               {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
