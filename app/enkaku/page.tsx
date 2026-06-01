@@ -263,15 +263,29 @@ export default function EnkakuPage() {
           )
         )}
 
-        {/* 回答者のみ: テキスト入力ボックス（常に表示） */}
+        {/* 回答者のみ: テキスト入力ボックス + 挙手/公開ボタン（常に表示） */}
         {role === '回答者' && (
-          <div>
+          <div className="space-y-3">
             <input
               type="text"
               placeholder="回答を入力してください"
               className="w-full focus:outline-none"
               style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000' }}
             />
+            <div className="flex gap-3">
+              <button
+                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
+                style={{ background: '#fff', color: th.titleColor, border: '2.5px solid #000' }}
+              >
+                挙手
+              </button>
+              <button
+                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
+                style={{ background: th.primaryBg, color: th.primaryText, border: '2.5px solid #000' }}
+              >
+                公開
+              </button>
+            </div>
           </div>
         )}
 
