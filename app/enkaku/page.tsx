@@ -257,6 +257,18 @@ export default function EnkakuPage() {
               )}
             </div>
 
+            {/* 回答者のみ: テキスト入力ボックス */}
+            {role === '回答者' && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="回答を入力してください"
+                  className="w-full focus:outline-none"
+                  style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000' }}
+                />
+              </div>
+            )}
+
             {/* 審査員のみ: 採点ボタン */}
             {role === '審査員' && (
               <div className="flex gap-3">
