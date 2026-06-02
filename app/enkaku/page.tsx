@@ -247,14 +247,14 @@ export default function EnkakuPage() {
 
         {/* PDFエリア + 挙手リスト（横並び） */}
         <div className="flex gap-3 items-start">
-          {/* 左: PDFビューア */}
-          <div style={{ flex: 3, minWidth: 0 }}>
+          {/* 左: PDFビューア（4:3固定） */}
+          <div style={{ flex: 'none', height: PDF_HEIGHT, aspectRatio: '4/3' }}>
             {pdfLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center" style={{ height: PDF_HEIGHT }}>
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
@@ -296,8 +296,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右: 挙手リスト */}
-          <div style={{ flex: 2, minWidth: 0, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
+          {/* 右: 挙手リスト（幅90px固定） */}
+          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
@@ -305,10 +305,9 @@ export default function EnkakuPage() {
               {hands.length === 0 ? (
                 <p className="text-xs text-center py-4" style={{ color: th.mutedColor }}>まだ挙手がありません</p>
               ) : (
-                hands.map((h, i) => (
-                  <div key={h.id} className="flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: '1px solid #eee' }}>
-                    <span className="font-black text-xs" style={{ color: th.mutedColor, minWidth: '18px' }}>{i + 1}</span>
-                    <span className="font-black text-sm" style={{ color: th.titleColor }}>{h.voter_name}</span>
+                hands.map((h) => (
+                  <div key={h.id} className="px-2 py-1.5" style={{ borderBottom: '1px solid #eee' }}>
+                    <span className="font-black text-xs" style={{ color: th.titleColor, wordBreak: 'break-all' }}>{h.voter_name}</span>
                   </div>
                 ))
               )}
