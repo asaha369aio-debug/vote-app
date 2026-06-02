@@ -83,8 +83,16 @@ export default function EnkakuPage() {
 
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
     const poll = setInterval(async () => {
-      const { data } = await supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
-      if (data) setCurrentPage(data.current_page)
+      // PDFページ番号の同期
+      const { data: pageData } = await supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
+      if (pageData) setCurrentPage(pageData.current_page)
+
+      // 挙手リストの同期（差分があれば更新）
+      const { data: handsData } = await supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
+      if (handsData) setHands((prev) => {
+        if (prev.length !== handsData.length) return handsData as Hand[]
+        return prev
+      })
     }, 2000)
 
     // コンテナ幅を取得してPDF描画幅を設定（リサイズにも対応）
