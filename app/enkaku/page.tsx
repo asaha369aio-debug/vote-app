@@ -19,6 +19,9 @@ const th = {
   primaryText: '#ffe600',
 }
 
+// 挙手レコードの型
+type Hand = { id: number; voter_name: string; raised_at: string }
+
 export default function EnkakuPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -30,6 +33,7 @@ export default function EnkakuPage() {
   const [pdfUploading, setPdfUploading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
+  const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -55,10 +59,20 @@ export default function EnkakuPage() {
     supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
       .then(({ data }) => { if (data) setCurrentPage(data.current_page) })
 
+    // 挙手リストの初期取得（raised_at昇順）
+    supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
+      .then(({ data }) => { if (data) setHands(data as Hand[]) })
+
     // Realtimeでページ変更を即時反映
-    const ch = supabase.channel('pdf-page')
+    const pageCh = supabase.channel('pdf-page')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pdf_settings' }, (payload) => {
         setCurrentPage(payload.new.current_page)
+      }).subscribe()
+
+    // Realtimeで挙手を即時反映（INSERT）
+    const handsCh = supabase.channel('enkaku-hands')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'enkaku_hands' }, (payload) => {
+        setHands((prev) => [...prev, payload.new as Hand])
       }).subscribe()
 
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
@@ -67,7 +81,11 @@ export default function EnkakuPage() {
       if (data) setCurrentPage(data.current_page)
     }, 2000)
 
-    return () => { supabase.removeChannel(ch); clearInterval(poll) }
+    return () => {
+      supabase.removeChannel(pageCh)
+      supabase.removeChannel(handsCh)
+      clearInterval(poll)
+    }
   }, [router])
 
   // 役割を切り替えてlocalStorageに保存
@@ -103,8 +121,13 @@ export default function EnkakuPage() {
   // 管理者のみ: ローカルを即時更新してからDBに書き込み → リアルタイムで全員に反映
   const goToPage = async (page: number) => {
     if (page < 1) return
-    setCurrentPage(page)  // 楽観的更新（管理者画面は即座に切り替わる）
+    setCurrentPage(page)
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
+  }
+
+  // 挙手ボタン: 自分の名前をDBに登録
+  const handleRaiseHand = async () => {
+    await supabase.from('enkaku_hands').insert({ voter_name: voterName })
   }
 
   // PDFのiframe src: ページ番号・スクロールバー・ツールバーを制御するパラメータ付き
@@ -116,7 +139,7 @@ export default function EnkakuPage() {
     <div className="min-h-screen" style={{ background: th.pageBg }}>
       {/* ヘッダー */}
       <header style={{ background: th.pageBg, borderBottom: '3px solid #000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg">←</Link>
             <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
@@ -176,7 +199,7 @@ export default function EnkakuPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8 space-y-4">
+      <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
         {/* ユーザー名 + 役割切り替えカード（常に表示） */}
         <div
           className="flex items-center justify-between px-4 py-3"
@@ -203,65 +226,85 @@ export default function EnkakuPage() {
           </div>
         </div>
 
-        {/* PDFエリア（設定済みの場合のみ表示） */}
-        {pdfLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
-          </div>
-        ) : pdfUrl ? (
-          <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative' }}>
-            {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
-            {/* 非管理者: marginTop で上部ツールバーを隠す */}
-            <iframe
-              key={currentPage}
-              src={iframeSrc}
-              scrolling="no"
-              style={{
-                width: '100%',
-                height: isAdmin ? '220px' : '253px',
-                marginTop: isAdmin ? '0' : '-33px',
-                border: 'none',
-                pointerEvents: 'none',
-                display: 'block',
-              }}
-              title={`PDF ${currentPage}ページ目`}
-            />
-
-            {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
-            {isAdmin && (
-              <div
-                className="flex items-center gap-2"
-                style={{ position: 'absolute', top: '8px', right: '8px' }}
-              >
-                <span className="font-black text-xs px-2 py-1" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
-                  {currentPage}p
-                </span>
-                {currentPage > 1 && (
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
-                    style={{ background: 'rgba(255,255,255,0.9)', color: th.titleColor, border: '1.5px solid #000' }}
-                  >
-                    ←
-                  </button>
-                )}
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
-                  style={{ background: 'rgba(0,0,0,0.85)', color: '#ffe600', border: '1.5px solid #000' }}
-                >
-                  →
-                </button>
+        {/* PDFエリア + 挙手リスト（横並び） */}
+        <div className="flex gap-3 items-start">
+          {/* 左: PDFビューア */}
+          <div style={{ flex: 3, minWidth: 0 }}>
+            {pdfLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
+            ) : pdfUrl ? (
+              <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative' }}>
+                {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
+                {/* 非管理者: marginTop で上部ツールバーを隠す */}
+                <iframe
+                  key={currentPage}
+                  src={iframeSrc}
+                  scrolling="no"
+                  style={{
+                    width: '100%',
+                    height: isAdmin ? '220px' : '253px',
+                    marginTop: isAdmin ? '0' : '-33px',
+                    border: 'none',
+                    pointerEvents: 'none',
+                    display: 'block',
+                  }}
+                  title={`PDF ${currentPage}ページ目`}
+                />
+                {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
+                {isAdmin && (
+                  <div className="flex items-center gap-2" style={{ position: 'absolute', top: '8px', right: '8px' }}>
+                    <span className="font-black text-xs px-2 py-1" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
+                      {currentPage}p
+                    </span>
+                    {currentPage > 1 && (
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
+                        style={{ background: 'rgba(255,255,255,0.9)', color: th.titleColor, border: '1.5px solid #000' }}
+                      >
+                        ←
+                      </button>
+                    )}
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      className="font-black text-xs px-2 py-1 hover:opacity-80 transition-opacity"
+                      style={{ background: 'rgba(0,0,0,0.85)', color: '#ffe600', border: '1.5px solid #000' }}
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              isAdmin && (
+                <p className="text-sm font-bold text-center py-4" style={{ color: th.mutedColor }}>
+                  「読み込み」ボタンからPDFを設定してください
+                </p>
+              )
             )}
           </div>
-        ) : (
-          isAdmin && (
-            <p className="text-sm font-bold text-center py-4" style={{ color: th.mutedColor }}>
-              「読み込み」ボタンからPDFを設定してください
-            </p>
-          )
-        )}
+
+          {/* 右: 挙手リスト */}
+          <div style={{ flex: 2, minWidth: 0, border: '2.5px solid #000', background: '#fff', height: '220px', display: 'flex', flexDirection: 'column' }}>
+            <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
+              ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+              {hands.length === 0 ? (
+                <p className="text-xs text-center py-4" style={{ color: th.mutedColor }}>まだ挙手がありません</p>
+              ) : (
+                hands.map((h, i) => (
+                  <div key={h.id} className="flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: '1px solid #eee' }}>
+                    <span className="font-black text-xs" style={{ color: th.mutedColor, minWidth: '18px' }}>{i + 1}</span>
+                    <span className="font-black text-sm" style={{ color: th.titleColor }}>{h.voter_name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* 回答者のみ: テキスト入力ボックス + 挙手/公開ボタン（常に表示） */}
         {role === '回答者' && (
@@ -274,6 +317,7 @@ export default function EnkakuPage() {
             />
             <div className="flex gap-3">
               <button
+                onClick={handleRaiseHand}
                 className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
                 style={{ background: '#fff', color: th.titleColor, border: '2.5px solid #000' }}
               >
