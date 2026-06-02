@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -44,6 +44,17 @@ export default function EnkakuPage() {
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
+
+  // マウント直後に幅を取得するコールバックref（ResizeObserverのタイミング問題を回避）
+  const pdfContainerCallback = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return
+    pdfContainerRef.current = node
+    setPdfContainerWidth(node.clientWidth)
+    const observer = new ResizeObserver((entries) => {
+      setPdfContainerWidth(entries[0].contentRect.width)
+    })
+    observer.observe(node)
+  }, [])
 
   useEffect(() => {
     // 認証チェック
@@ -98,18 +109,10 @@ export default function EnkakuPage() {
       })
     }, 2000)
 
-    // ResizeObserverでPDFコンテナ幅を動的に取得
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width
-      if (width) setPdfContainerWidth(width)
-    })
-    if (pdfContainerRef.current) observer.observe(pdfContainerRef.current)
-
     return () => {
       supabase.removeChannel(pageCh)
       supabase.removeChannel(handsCh)
       clearInterval(poll)
-      observer.disconnect()
     }
   }, [router])
 
@@ -263,7 +266,7 @@ export default function EnkakuPage() {
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', position: 'relative', background: '#f5f5f5' }}>
+              <div ref={pdfContainerCallback} style={{ border: '2.5px solid #000', position: 'relative', background: '#f5f5f5' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
