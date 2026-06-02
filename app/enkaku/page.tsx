@@ -4,7 +4,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
 import { supabase } from '@/lib/supabase'
+
+// PDF.jsワーカーをCDNから読み込み（モバイル含む全ブラウザ対応）
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 // PDF表示用Storageバケット・固定ファイル名
 const PDF_BUCKET = 'pdf-display'
@@ -34,7 +40,9 @@ export default function EnkakuPage() {
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
+  const [pdfContainerWidth, setPdfContainerWidth] = useState(0)  // PDFの描画幅（レスポンシブ対応）
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
+  const pdfContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // 認証チェック
@@ -81,10 +89,18 @@ export default function EnkakuPage() {
       if (data) setCurrentPage(data.current_page)
     }, 2000)
 
+    // コンテナ幅を取得してPDF描画幅を設定（リサイズにも対応）
+    const updateWidth = () => {
+      if (pdfContainerRef.current) setPdfContainerWidth(pdfContainerRef.current.clientWidth)
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+
     return () => {
       supabase.removeChannel(pageCh)
       supabase.removeChannel(handsCh)
       clearInterval(poll)
+      window.removeEventListener('resize', updateWidth)
     }
   }, [router])
 
@@ -137,11 +153,6 @@ export default function EnkakuPage() {
       setHands((prev) => [...prev, data as Hand])
     }
   }
-
-  // PDFのiframe src: ページ番号・スクロールバー・ツールバーを制御するパラメータ付き
-  const iframeSrc = pdfUrl
-    ? `${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0&view=Fit`
-    : ''
 
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
@@ -243,23 +254,21 @@ export default function EnkakuPage() {
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative' }}>
-                {/* key={currentPage} でページ変更時にiframeを強制再描画 */}
-                {/* 非管理者: marginTop で上部ツールバーを隠す */}
-                <iframe
-                  key={currentPage}
-                  src={iframeSrc}
-                  scrolling="no"
-                  style={{
-                    width: '100%',
-                    height: isAdmin ? '220px' : '253px',
-                    marginTop: isAdmin ? '0' : '-33px',
-                    border: 'none',
-                    pointerEvents: 'none',
-                    display: 'block',
-                  }}
-                  title={`PDF ${currentPage}ページ目`}
-                />
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative', background: '#f5f5f5' }}>
+                {/* react-pdfでCanvasレンダリング（モバイル対応） */}
+                <Document
+                  file={pdfUrl}
+                  loading={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}><p className="font-black text-sm" style={{ color: th.mutedColor }}>読み込み中...</p></div>}
+                  error={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}><p className="font-black text-sm" style={{ color: '#ff2200' }}>PDF読み込みエラー</p></div>}
+                >
+                  <Page
+                    pageNumber={currentPage}
+                    width={pdfContainerWidth || undefined}
+                    renderAnnotationLayer={false}
+                    renderTextLayer={false}
+                  />
+                </Document>
+
                 {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
                 {isAdmin && (
                   <div className="flex items-center gap-2" style={{ position: 'absolute', top: '8px', right: '8px' }}>
