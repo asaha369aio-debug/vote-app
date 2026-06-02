@@ -4,13 +4,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Document, Page, pdfjs } from 'react-pdf'
-import 'react-pdf/dist/Page/AnnotationLayer.css'
-import 'react-pdf/dist/Page/TextLayer.css'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 
-// PDF.jsワーカーをCDNから読み込み（モバイル含む全ブラウザ対応）
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// SSRを無効にしてブラウザ専用のPDFビューアを動的インポート
+const PdfViewer = dynamic(() => import('./PdfViewer'), { ssr: false })
 
 // PDF表示用Storageバケット・固定ファイル名
 const PDF_BUCKET = 'pdf-display'
@@ -255,19 +253,13 @@ export default function EnkakuPage() {
               </div>
             ) : pdfUrl ? (
               <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', overflow: 'hidden', height: '220px', position: 'relative', background: '#f5f5f5' }}>
-                {/* react-pdfでCanvasレンダリング（モバイル対応） */}
-                <Document
-                  file={pdfUrl}
-                  loading={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}><p className="font-black text-sm" style={{ color: th.mutedColor }}>読み込み中...</p></div>}
-                  error={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}><p className="font-black text-sm" style={{ color: '#ff2200' }}>PDF読み込みエラー</p></div>}
-                >
-                  <Page
-                    pageNumber={currentPage}
-                    width={pdfContainerWidth || undefined}
-                    renderAnnotationLayer={false}
-                    renderTextLayer={false}
-                  />
-                </Document>
+                {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
+                <PdfViewer
+                  pdfUrl={pdfUrl}
+                  currentPage={currentPage}
+                  containerWidth={pdfContainerWidth}
+                  mutedColor={th.mutedColor}
+                />
 
                 {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
                 {isAdmin && (
