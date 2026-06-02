@@ -218,23 +218,25 @@ export default function EnkakuPage() {
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
       {/* ヘッダー */}
-      <header style={{ background: th.pageBg, borderBottom: '3px solid #000', overflowX: 'auto' }}>
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between" style={{ minWidth: 'max-content', gap: '8px' }}>
-          <div className="flex items-center gap-3">
-            <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg">←</Link>
-            <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
-            <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>遠隔加点</span>
+      <header style={{ background: th.pageBg, borderBottom: '3px solid #000' }}>
+        <div className="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          {/* 左: 戻るボタン + ロゴ + ラベル */}
+          <div className="flex items-center gap-2" style={{ flex: '0 0 auto' }}>
+            <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity">←</Link>
+            <Image src="/qol_logo.png" alt="QOL" width={80} height={27} style={{ objectFit: 'contain' }} priority />
+            <span className="font-black text-black text-xs px-1.5 py-0.5" style={{ border: '2px solid #000' }}>遠隔加点</span>
           </div>
 
-          {/* ユーザー名表示・編集 */}
-          <div className="flex items-center gap-2">
+          {/* 右: ユーザー名 + 管理者ボタン */}
+          <div className="flex items-center gap-2" style={{ flex: '1 1 auto', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {/* ユーザー名表示・編集 */}
             {editingName ? (
               <form onSubmit={handleNameEdit} className="flex items-center gap-1">
                 <input
                   type="text"
                   value={editNameInput}
                   onChange={(e) => setEditNameInput(e.target.value)}
-                  className="w-24 text-sm px-2 py-1 focus:outline-none"
+                  className="w-20 text-xs px-2 py-1 focus:outline-none"
                   style={{ border: '1px solid #000', background: 'rgba(0,0,0,0.08)' }}
                   placeholder="新しい名前"
                   autoFocus
@@ -247,35 +249,29 @@ export default function EnkakuPage() {
               voterName && (
                 <button
                   onClick={() => { setEditNameInput(voterName); setEditingName(true) }}
-                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 hover:opacity-70 transition-opacity"
+                  className="flex items-center gap-1 text-xs px-2 py-1 hover:opacity-70 transition-opacity"
                   style={{ border: '1px solid #000', borderRadius: '999px' }}
                 >
-                  <span>👤</span><span className="font-black">{voterName}</span><span className="text-xs opacity-40">✎</span>
+                  <span>👤</span><span className="font-black">{voterName}</span><span className="opacity-40">✎</span>
                 </button>
               )
             )}
-          </div>
 
-          {/* 管理者専用: PDF読み込みボタン */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => pdfFileInputRef.current?.click()}
-                disabled={pdfUploading}
-                className="font-black text-xs px-4 py-1.5 hover:opacity-80 transition-opacity disabled:opacity-50"
-                style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000' }}
-              >
-                {pdfUploading ? '読み込み中...' : '読み込み'}
-              </button>
-              <input
-                ref={pdfFileInputRef}
-                type="file"
-                accept="application/pdf"
-                style={{ display: 'none' }}
-                onChange={handlePdfUpload}
-              />
-            </div>
-          )}
+            {/* 管理者専用: PDF読み込みボタン */}
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => pdfFileInputRef.current?.click()}
+                  disabled={pdfUploading}
+                  className="font-black text-xs px-3 py-1.5 hover:opacity-80 transition-opacity disabled:opacity-50"
+                  style={{ background: th.primaryBg, color: th.primaryText, border: '2px solid #000' }}
+                >
+                  {pdfUploading ? '読み込み中...' : '読み込み'}
+                </button>
+                <input ref={pdfFileInputRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} />
+              </>
+            )}
+          </div>
         </div>
       </header>
 
