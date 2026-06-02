@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase'
 // SSRを無効にしてブラウザ専用のPDFビューアを動的インポート
 const PdfViewer = dynamic(() => import('./PdfViewer'), { ssr: false })
 
+// PDFと挙手リストの共通固定縦幅
+const PDF_HEIGHT = 300
+
 // PDF表示用Storageバケット・固定ファイル名
 const PDF_BUCKET = 'pdf-display'
 const PDF_FILE = 'current.pdf'
@@ -251,7 +254,7 @@ export default function EnkakuPage() {
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', position: 'relative', background: '#f5f5f5' }}>
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
@@ -294,11 +297,11 @@ export default function EnkakuPage() {
           </div>
 
           {/* 右: 挙手リスト */}
-          <div style={{ flex: 2, minWidth: 0, border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 2, minWidth: 0, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', WebkitOverflowScrolling: 'touch' }}>
               {hands.length === 0 ? (
                 <p className="text-xs text-center py-4" style={{ color: th.mutedColor }}>まだ挙手がありません</p>
               ) : (
