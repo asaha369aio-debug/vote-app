@@ -32,10 +32,10 @@ export default function PdfViewer({ pdfUrl, currentPage, mutedColor, containerWi
         </div>
       }
     >
-      {/* heightを固定してPDF全ページを縦幅内に収める（幅は比率に応じて自動） */}
+      {/* widthをコンテナ幅に固定してPDFを全幅表示（高さは比率で自動） */}
       <Page
         pageNumber={currentPage}
-        height={PDF_HEIGHT}
+        width={containerWidth || undefined}
         renderAnnotationLayer={false}
         renderTextLayer={false}
       />

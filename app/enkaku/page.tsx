@@ -263,7 +263,7 @@ export default function EnkakuPage() {
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, overflow: 'hidden', position: 'relative', background: '#f5f5f5', display: 'flex', justifyContent: 'center' }}>
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', position: 'relative', background: '#f5f5f5' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
