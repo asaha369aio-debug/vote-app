@@ -218,8 +218,8 @@ export default function EnkakuPage() {
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
       {/* ヘッダー */}
-      <header style={{ background: th.pageBg, borderBottom: '3px solid #000' }}>
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header style={{ background: th.pageBg, borderBottom: '3px solid #000', overflowX: 'auto' }}>
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between" style={{ minWidth: 'max-content', gap: '8px' }}>
           <div className="flex items-center gap-3">
             <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg">←</Link>
             <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
@@ -279,7 +279,7 @@ export default function EnkakuPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
+      <main className="max-w-3xl mx-auto px-4 py-4 space-y-3" style={{ overflowX: 'hidden' }}>
         {/* 管理者のみ: 次の人ボタン */}
         {isAdmin && (
           <button
