@@ -45,6 +45,8 @@ export default function EnkakuPage() {
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
   const [score, setScore] = useState<string | null>(null)      // 審査員が選択中の数字
   const [scores, setScores] = useState<Score[]>([])             // 全審査員の送信済みスコア
+  const [answerInput, setAnswerInput] = useState('')            // 回答者の入力テキスト（ローカル）
+  const [displayAnswer, setDisplayAnswer] = useState('')        // 全員に表示される公開済み回答
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
@@ -79,9 +81,14 @@ export default function EnkakuPage() {
       setPdfLoading(false)
     })
 
-    // DBから現在のページ番号を取得
-    supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
-      .then(({ data }) => { if (data) setCurrentPage(data.current_page) })
+    // DBから現在のページ番号と公開済み回答を取得
+    supabase.from('pdf_settings').select('current_page, current_answer').eq('id', 1).single()
+      .then(({ data }) => {
+        if (data) {
+          setCurrentPage(data.current_page)
+          setDisplayAnswer(data.current_answer ?? '')
+        }
+      })
 
     // 挙手リストの初期取得（raised_at昇順）
     supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
@@ -91,10 +98,11 @@ export default function EnkakuPage() {
     supabase.from('enkaku_scores').select('*')
       .then(({ data }) => { if (data) setScores(data as Score[]) })
 
-    // Realtimeでページ変更を即時反映
+    // Realtimeでページ変更・公開回答を即時反映
     const pageCh = supabase.channel('pdf-page')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pdf_settings' }, (payload) => {
         setCurrentPage(payload.new.current_page)
+        setDisplayAnswer(payload.new.current_answer ?? '')
       }).subscribe()
 
     // RealtimeでINSERT・DELETEを即時反映（挙手）
@@ -123,8 +131,8 @@ export default function EnkakuPage() {
 
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
     const poll = setInterval(async () => {
-      const { data: pageData } = await supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
-      if (pageData) setCurrentPage(pageData.current_page)
+      const { data: pageData } = await supabase.from('pdf_settings').select('current_page, current_answer').eq('id', 1).single()
+      if (pageData) { setCurrentPage(pageData.current_page); setDisplayAnswer(pageData.current_answer ?? '') }
 
       const { data: handsData } = await supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
       if (handsData) setHands((prev) => prev.length !== handsData.length ? handsData as Hand[] : prev)
@@ -178,14 +186,22 @@ export default function EnkakuPage() {
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
-  // 管理者のみ: 挙手リスト先頭削除 + スコアを全クリアして次の人へ
+  // 管理者のみ: 挙手リスト先頭削除 + スコア・公開回答を全クリアして次の人へ
   const handleNextPerson = async () => {
     const first = hands[0]
     if (!first) return
     setHands((prev) => prev.slice(1))
     setScores([])
+    setDisplayAnswer('')
     await supabase.from('enkaku_hands').delete().eq('id', first.id)
-    await supabase.from('enkaku_scores').delete().neq('id', 0)  // 全件削除
+    await supabase.from('enkaku_scores').delete().neq('id', 0)
+    await supabase.from('pdf_settings').update({ current_answer: '' }).eq('id', 1)
+  }
+
+  // 回答者: 入力テキストをDBに保存して全員に公開
+  const handlePublishAnswer = async () => {
+    setDisplayAnswer(answerInput)
+    await supabase.from('pdf_settings').update({ current_answer: answerInput }).eq('id', 1)
   }
 
   // 審査員: 選択中のスコアを送信（同名なら上書きupsert）
@@ -257,7 +273,7 @@ export default function EnkakuPage() {
               )
             )}
 
-            {/* 管理者専用: PDF読み込みボタン */}
+            {/* 管理者専用: PDF読み込み + 次の人ボタン */}
             {isAdmin && (
               <>
                 <button
@@ -269,6 +285,14 @@ export default function EnkakuPage() {
                   {pdfUploading ? '読み込み中...' : '読み込み'}
                 </button>
                 <input ref={pdfFileInputRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} />
+                <button
+                  onClick={handleNextPerson}
+                  disabled={hands.length === 0}
+                  className="font-black text-xs px-3 py-1.5 hover:opacity-80 transition-opacity disabled:opacity-40"
+                  style={{ background: '#00aa44', color: '#fff', border: '2px solid #000' }}
+                >
+                  次の人 →
+                </button>
               </>
             )}
           </div>
@@ -276,16 +300,14 @@ export default function EnkakuPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-4 space-y-3" style={{ overflowX: 'hidden' }}>
-        {/* 管理者のみ: 次の人ボタン */}
-        {isAdmin && (
-          <button
-            onClick={handleNextPerson}
-            disabled={hands.length === 0}
-            className="w-full font-black py-2.5 hover:opacity-80 transition-opacity disabled:opacity-40"
-            style={{ background: '#00aa44', color: '#fff', border: '2.5px solid #000', fontSize: '1rem' }}
+        {/* 公開済み回答の表示エリア（全員に表示、空欄時は非表示） */}
+        {displayAnswer !== '' && (
+          <div
+            className="w-full font-black text-center py-3 px-4"
+            style={{ background: '#fff', border: '2.5px solid #000', fontSize: '1.1rem', color: th.titleColor, wordBreak: 'break-all' }}
           >
-            次の人 →
-          </button>
+            {displayAnswer}
+          </div>
         )}
 
         {/* 全体レイアウト: グリッド（左列=残り幅、右列=90px固定） */}
@@ -413,6 +435,8 @@ export default function EnkakuPage() {
           <div className="space-y-3">
             <input
               type="text"
+              value={answerInput}
+              onChange={(e) => setAnswerInput(e.target.value)}
               placeholder="回答を入力してください"
               className="w-full focus:outline-none"
               style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000' }}
@@ -426,6 +450,7 @@ export default function EnkakuPage() {
                 挙手
               </button>
               <button
+                onClick={handlePublishAnswer}
                 className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
                 style={{ background: th.primaryBg, color: th.primaryText, border: '2.5px solid #000' }}
               >
