@@ -442,9 +442,11 @@ export default function EnkakuPage() {
               style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000' }}
             />
             <div className="flex gap-3">
+              {/* すでに挙手済みの場合はボタンを無効化 */}
               <button
                 onClick={handleRaiseHand}
-                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
+                disabled={hands.some((h) => h.voter_name === voterName)}
+                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95 disabled:opacity-30"
                 style={{ background: '#fff', color: th.titleColor, border: '2.5px solid #000' }}
               >
                 挙手
