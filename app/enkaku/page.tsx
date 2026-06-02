@@ -186,10 +186,19 @@ export default function EnkakuPage() {
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
-  // 管理者のみ: 挙手リスト先頭削除 + スコア・公開回答を全クリアして次の人へ
+  // 管理者のみ: 結果を記録してから挙手・スコア・回答をクリアして次の人へ
   const handleNextPerson = async () => {
     const first = hands[0]
     if (!first) return
+    // 現在のスコア・回答をDBに記録
+    const totalScore = scores.length > 0 ? scores.reduce((acc, s) => acc * s.score, 1) : 0
+    await supabase.from('enkaku_results').insert({
+      voter_name: first.voter_name,
+      answer: displayAnswer,
+      scores: scores.map((s) => ({ voter_name: s.voter_name, score: s.score })),
+      total_score: totalScore,
+    })
+    // クリア処理
     setHands((prev) => prev.slice(1))
     setScores([])
     setDisplayAnswer('')
@@ -293,6 +302,13 @@ export default function EnkakuPage() {
                 >
                   次の人 →
                 </button>
+                <Link
+                  href="/enkaku/results"
+                  className="font-black text-xs px-3 py-1.5 hover:opacity-80 transition-opacity"
+                  style={{ background: '#0033cc', color: '#fff', border: '2px solid #000' }}
+                >
+                  結果一覧
+                </Link>
               </>
             )}
           </div>
