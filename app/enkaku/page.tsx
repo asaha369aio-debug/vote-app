@@ -449,9 +449,11 @@ export default function EnkakuPage() {
               >
                 挙手
               </button>
+              {/* 挙手リスト1番目のユーザーのみ公開可能 */}
               <button
                 onClick={handlePublishAnswer}
-                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95"
+                disabled={voterName !== hands[0]?.voter_name}
+                className="flex-1 font-black text-base py-3 hover:opacity-80 transition-opacity active:scale-95 disabled:opacity-30"
                 style={{ background: th.primaryBg, color: th.primaryText, border: '2.5px solid #000' }}
               >
                 公開
