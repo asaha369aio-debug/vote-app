@@ -232,7 +232,7 @@ export default function EnkakuPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
         {/* 全体レイアウト: 左列（ユーザー名+PDF） + 右列（挙手リスト） */}
-        <div className="flex gap-3 items-stretch">
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
 
           {/* 左列: ユーザー名カード + PDFビューア */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0' }}>
@@ -309,8 +309,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右列: 挙手リスト（幅90px・左列全高に伸びる） */}
-          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          {/* 右列: 挙手リスト（幅90px・左列と同じ高さに伸びる） */}
+          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
