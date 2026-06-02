@@ -231,11 +231,11 @@ export default function EnkakuPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
-        {/* 全体レイアウト: 左列（ユーザー名+PDF） + 右列（挙手リスト） */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
+        {/* 全体レイアウト: グリッド（左列=残り幅、右列=90px固定） */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '12px' }}>
 
           {/* 左列: ユーザー名カード + PDFビューア */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {/* ユーザー名 + 役割切り替えカード */}
             <div
               className="flex items-center justify-between px-4 py-3"
@@ -309,8 +309,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右列: 挙手リスト（幅90px・左列と同じ高さに伸びる） */}
-          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }}>
+          {/* 右列: 挙手リスト（グリッドで左列と同じ高さに自動揃え） */}
+          <div style={{ border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
