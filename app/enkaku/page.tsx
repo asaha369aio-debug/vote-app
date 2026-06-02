@@ -90,11 +90,15 @@ export default function EnkakuPage() {
         setCurrentPage(payload.new.current_page)
       }).subscribe()
 
-    // Realtimeで挙手を即時反映（INSERT）: 重複を除いて追加
+    // RealtimeでINSERT・DELETEを即時反映
     const handsCh = supabase.channel('enkaku-hands')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'enkaku_hands' }, (payload) => {
         setHands((prev) => prev.some((h) => h.id === payload.new.id) ? prev : [...prev, payload.new as Hand])
-      }).subscribe()
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'enkaku_hands' }, (payload) => {
+        setHands((prev) => prev.filter((h) => h.id !== payload.old.id))
+      })
+      .subscribe()
 
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
     const poll = setInterval(async () => {
@@ -152,6 +156,14 @@ export default function EnkakuPage() {
     if (page < 1) return
     setCurrentPage(page)
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
+  }
+
+  // 管理者のみ: 挙手リストの先頭を削除して次の人へ進む
+  const handleNextPerson = async () => {
+    const first = hands[0]
+    if (!first) return
+    setHands((prev) => prev.slice(1))  // 楽観的更新
+    await supabase.from('enkaku_hands').delete().eq('id', first.id)
   }
 
   // 挙手ボタン: DBに登録しつつローカルにも即時反映（楽観的更新）
@@ -232,6 +244,18 @@ export default function EnkakuPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
+        {/* 管理者のみ: 次の人ボタン */}
+        {isAdmin && (
+          <button
+            onClick={handleNextPerson}
+            disabled={hands.length === 0}
+            className="w-full font-black py-2.5 hover:opacity-80 transition-opacity disabled:opacity-40"
+            style={{ background: '#00aa44', color: '#fff', border: '2.5px solid #000', fontSize: '1rem' }}
+          >
+            次の人 →
+          </button>
+        )}
+
         {/* 全体レイアウト: グリッド（左列=残り幅、右列=90px固定） */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '12px' }}>
 
@@ -261,9 +285,9 @@ export default function EnkakuPage() {
                   </button>
                 ))}
               </div>
-              {/* 下段: ユーザー名 */}
+              {/* 下段: 挙手リスト1番目のユーザー名 */}
               <span className="font-black" style={{ color: th.titleColor, fontSize: '0.75rem' }}>
-                👤 {voterName}
+                👤 {hands[0]?.voter_name ?? '—'}
               </span>
             </div>
 
