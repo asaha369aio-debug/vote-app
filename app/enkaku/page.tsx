@@ -38,7 +38,6 @@ export default function EnkakuPage() {
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
-  const [pdfContainerWidth, setPdfContainerWidth] = useState(0)  // PDFの描画幅（レスポンシブ対応）
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
 
@@ -95,18 +94,10 @@ export default function EnkakuPage() {
       })
     }, 2000)
 
-    // コンテナ幅を取得してPDF描画幅を設定（リサイズにも対応）
-    const updateWidth = () => {
-      if (pdfContainerRef.current) setPdfContainerWidth(pdfContainerRef.current.clientWidth)
-    }
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-
     return () => {
       supabase.removeChannel(pageCh)
       supabase.removeChannel(handsCh)
       clearInterval(poll)
-      window.removeEventListener('resize', updateWidth)
     }
   }, [router])
 
@@ -265,7 +256,6 @@ export default function EnkakuPage() {
                 <PdfViewer
                   pdfUrl={pdfUrl}
                   currentPage={currentPage}
-                  containerWidth={pdfContainerWidth}
                   mutedColor={th.mutedColor}
                 />
 

@@ -10,32 +10,38 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
 type Props = {
   pdfUrl: string
   currentPage: number
-  containerWidth: number
   mutedColor: string
 }
 
 // ブラウザ専用コンポーネント（SSR無効で動的インポートされる）
-export default function PdfViewer({ pdfUrl, currentPage, containerWidth, mutedColor }: Props) {
+export default function PdfViewer({ pdfUrl, currentPage, mutedColor }: Props) {
   return (
-    <Document
-      file={pdfUrl}
-      loading={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}>
-          <p className="font-black text-sm" style={{ color: mutedColor }}>読み込み中...</p>
-        </div>
-      }
-      error={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '220px' }}>
-          <p className="font-black text-sm" style={{ color: '#ff2200' }}>PDF読み込みエラー</p>
-        </div>
-      }
-    >
-      <Page
-        pageNumber={currentPage}
-        width={containerWidth || undefined}
-        renderAnnotationLayer={false}
-        renderTextLayer={false}
-      />
-    </Document>
+    // canvasをコンテナ幅に合わせて100%表示するCSSを注入
+    <div style={{ width: '100%' }}>
+      <style>{`
+        .react-pdf__Page { width: 100% !important; }
+        .react-pdf__Page canvas { width: 100% !important; height: auto !important; }
+        .react-pdf__Page__canvas { width: 100% !important; height: auto !important; }
+      `}</style>
+      <Document
+        file={pdfUrl}
+        loading={
+          <div style={{ padding: '24px', textAlign: 'center' }}>
+            <p className="font-black text-sm" style={{ color: mutedColor }}>読み込み中...</p>
+          </div>
+        }
+        error={
+          <div style={{ padding: '24px', textAlign: 'center' }}>
+            <p className="font-black text-sm" style={{ color: '#ff2200' }}>PDF読み込みエラー</p>
+          </div>
+        }
+      >
+        <Page
+          pageNumber={currentPage}
+          renderAnnotationLayer={false}
+          renderTextLayer={false}
+        />
+      </Document>
+    </div>
   )
 }
