@@ -263,7 +263,7 @@ export default function EnkakuPage() {
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, overflow: 'hidden', position: 'relative', background: '#f5f5f5', display: 'flex', justifyContent: 'center' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
@@ -306,8 +306,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右: 挙手リスト（幅90px固定・PDFと同じ4:3高さ） */}
-          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', aspectRatio: '4/3', display: 'flex', flexDirection: 'column' }}>
+          {/* 右: 挙手リスト（幅90px・PDFと同じ固定高さ） */}
+          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
