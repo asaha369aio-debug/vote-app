@@ -28,6 +28,8 @@ const th = {
 
 // 挙手レコードの型
 type Hand = { id: number; voter_name: string; raised_at: string }
+// 採点レコードの型
+type Score = { id: number; voter_name: string; score: number }
 
 export default function EnkakuPage() {
   const router = useRouter()
@@ -41,7 +43,8 @@ export default function EnkakuPage() {
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
-  const [score, setScore] = useState<string | null>(null)  // 審査員が押した採点数字
+  const [score, setScore] = useState<string | null>(null)      // 審査員が選択中の数字
+  const [scores, setScores] = useState<Score[]>([])             // 全審査員の送信済みスコア
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
@@ -84,13 +87,17 @@ export default function EnkakuPage() {
     supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
       .then(({ data }) => { if (data) setHands(data as Hand[]) })
 
+    // スコアリストの初期取得
+    supabase.from('enkaku_scores').select('*')
+      .then(({ data }) => { if (data) setScores(data as Score[]) })
+
     // Realtimeでページ変更を即時反映
     const pageCh = supabase.channel('pdf-page')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pdf_settings' }, (payload) => {
         setCurrentPage(payload.new.current_page)
       }).subscribe()
 
-    // RealtimeでINSERT・DELETEを即時反映
+    // RealtimeでINSERT・DELETEを即時反映（挙手）
     const handsCh = supabase.channel('enkaku-hands')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'enkaku_hands' }, (payload) => {
         setHands((prev) => prev.some((h) => h.id === payload.new.id) ? prev : [...prev, payload.new as Hand])
@@ -100,23 +107,36 @@ export default function EnkakuPage() {
       })
       .subscribe()
 
+    // RealtimeでINSERT・UPDATE・DELETEを即時反映（採点）
+    const scoresCh = supabase.channel('enkaku-scores')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'enkaku_scores' }, (payload) => {
+        setScores((prev) => prev.some((s) => s.id === payload.new.id) ? prev : [...prev, payload.new as Score])
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'enkaku_scores' }, (payload) => {
+        setScores((prev) => prev.map((s) => s.id === payload.new.id ? payload.new as Score : s))
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'enkaku_scores' }, () => {
+        // DELETEは全削除（次の人）なので全クリア
+        setScores([])
+      })
+      .subscribe()
+
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
     const poll = setInterval(async () => {
-      // PDFページ番号の同期
       const { data: pageData } = await supabase.from('pdf_settings').select('current_page').eq('id', 1).single()
       if (pageData) setCurrentPage(pageData.current_page)
 
-      // 挙手リストの同期（差分があれば更新）
       const { data: handsData } = await supabase.from('enkaku_hands').select('*').order('raised_at', { ascending: true })
-      if (handsData) setHands((prev) => {
-        if (prev.length !== handsData.length) return handsData as Hand[]
-        return prev
-      })
+      if (handsData) setHands((prev) => prev.length !== handsData.length ? handsData as Hand[] : prev)
+
+      const { data: scoresData } = await supabase.from('enkaku_scores').select('*')
+      if (scoresData) setScores(scoresData as Score[])
     }, 2000)
 
     return () => {
       supabase.removeChannel(pageCh)
       supabase.removeChannel(handsCh)
+      supabase.removeChannel(scoresCh)
       clearInterval(poll)
     }
   }, [router])
@@ -158,12 +178,28 @@ export default function EnkakuPage() {
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
-  // 管理者のみ: 挙手リストの先頭を削除して次の人へ進む
+  // 管理者のみ: 挙手リスト先頭削除 + スコアを全クリアして次の人へ
   const handleNextPerson = async () => {
     const first = hands[0]
     if (!first) return
-    setHands((prev) => prev.slice(1))  // 楽観的更新
+    setHands((prev) => prev.slice(1))
+    setScores([])
     await supabase.from('enkaku_hands').delete().eq('id', first.id)
+    await supabase.from('enkaku_scores').delete().neq('id', 0)  // 全件削除
+  }
+
+  // 審査員: 選択中のスコアを送信（同名なら上書きupsert）
+  const handleSendScore = async () => {
+    if (score === null) return
+    const val = parseInt(score)
+    const { data } = await supabase
+      .from('enkaku_scores')
+      .upsert({ voter_name: voterName, score: val }, { onConflict: 'voter_name' })
+      .select().single()
+    if (data) setScores((prev) => {
+      const exists = prev.find((s) => s.voter_name === voterName)
+      return exists ? prev.map((s) => s.voter_name === voterName ? data as Score : s) : [...prev, data as Score]
+    })
   }
 
   // 挙手ボタン: DBに登録しつつローカルにも即時反映（楽観的更新）
@@ -304,8 +340,8 @@ export default function EnkakuPage() {
                   mutedColor={th.mutedColor}
                   containerWidth={pdfContainerWidth}
                 />
-                {/* 審査員が押した採点数字をPDF中央に重ねて表示 */}
-                {score !== null && (
+                {/* 全審査員スコアの掛け合わせ結果をPDF中央にオーバーレイ表示 */}
+                {scores.length > 0 && (
                   <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -317,7 +353,7 @@ export default function EnkakuPage() {
                       textShadow: '0 0 12px #000, 0 0 4px #000',
                       WebkitTextStroke: '3px #000',
                     }}>
-                      {score}
+                      {scores.reduce((acc, s) => acc * s.score, 1)}
                     </span>
                   </div>
                 )}
@@ -403,23 +439,34 @@ export default function EnkakuPage() {
           </div>
         )}
 
-        {/* 審査員のみ: 採点ボタン（常に表示） */}
+        {/* 審査員のみ: 採点ボタン + 送信ボタン */}
         {role === '審査員' && (
-          <div className="flex gap-3">
-            {['0', '1', '2', '3'].map((label) => (
-              <button
-                key={label}
-                onClick={() => setScore((prev) => prev === label ? null : label)}
-                className="flex-1 font-black text-2xl py-4 hover:opacity-80 transition-opacity active:scale-95"
-                style={{
-                  background: score === label ? th.primaryBg : '#fff',
-                  color: score === label ? th.primaryText : th.titleColor,
-                  border: `2.5px solid ${score === label ? '#000' : '#000'}`,
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              {['0', '1', '2', '3'].map((label) => (
+                <button
+                  key={label}
+                  onClick={() => setScore((prev) => prev === label ? null : label)}
+                  className="flex-1 font-black text-2xl py-4 hover:opacity-80 transition-opacity active:scale-95"
+                  style={{
+                    background: score === label ? th.primaryBg : '#fff',
+                    color: score === label ? th.primaryText : th.titleColor,
+                    border: '2.5px solid #000',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* スコア送信ボタン: 選択中の数字を全員に送信して掛け合わせ表示 */}
+            <button
+              onClick={handleSendScore}
+              disabled={score === null}
+              className="w-full font-black py-3 hover:opacity-80 transition-opacity disabled:opacity-40 active:scale-95"
+              style={{ background: '#ff2200', color: '#fff', border: '2.5px solid #000', fontSize: '1.1rem' }}
+            >
+              {score ?? '?'}点を送る
+            </button>
           </div>
         )}
       </main>
