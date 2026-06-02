@@ -69,10 +69,10 @@ export default function EnkakuPage() {
         setCurrentPage(payload.new.current_page)
       }).subscribe()
 
-    // Realtimeで挙手を即時反映（INSERT）
+    // Realtimeで挙手を即時反映（INSERT）: 重複を除いて追加
     const handsCh = supabase.channel('enkaku-hands')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'enkaku_hands' }, (payload) => {
-        setHands((prev) => [...prev, payload.new as Hand])
+        setHands((prev) => prev.some((h) => h.id === payload.new.id) ? prev : [...prev, payload.new as Hand])
       }).subscribe()
 
     // Realtimeが途切れた場合のフォールバック: 2秒ごとにポーリング
@@ -125,9 +125,17 @@ export default function EnkakuPage() {
     await supabase.from('pdf_settings').update({ current_page: page }).eq('id', 1)
   }
 
-  // 挙手ボタン: 自分の名前をDBに登録
+  // 挙手ボタン: DBに登録しつつローカルにも即時反映（楽観的更新）
   const handleRaiseHand = async () => {
-    await supabase.from('enkaku_hands').insert({ voter_name: voterName })
+    const { data, error } = await supabase
+      .from('enkaku_hands')
+      .insert({ voter_name: voterName })
+      .select()
+      .single()
+    if (!error && data) {
+      // Realtimeが届く前に自分の画面へ即時追加
+      setHands((prev) => [...prev, data as Hand])
+    }
   }
 
   // PDFのiframe src: ページ番号・スクロールバー・ツールバーを制御するパラメータ付き
