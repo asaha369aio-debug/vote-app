@@ -236,30 +236,34 @@ export default function EnkakuPage() {
 
           {/* 左列: ユーザー名カード + PDFビューア */}
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            {/* ユーザー名 + 役割切り替えカード */}
+            {/* 役割切り替え + ユーザー名カード */}
             <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ background: '#fff', border: '2.5px solid #000', borderBottom: 'none' }}
+              className="flex flex-col"
+              style={{ background: '#fff', border: '2.5px solid #000', borderBottom: 'none', padding: '6px 12px' }}
             >
-              <span className="font-black text-sm" style={{ color: th.titleColor }}>
-                👤 {voterName}
-              </span>
-              <div className="flex items-center gap-1">
+              {/* 上段: 役割切り替えボタン */}
+              <div className="flex gap-1 mb-1">
                 {(['回答者', '審査員'] as const).map((r) => (
                   <button
                     key={r}
                     onClick={() => handleRoleChange(r)}
-                    className="font-black text-xs px-3 py-1.5 transition-all hover:opacity-80"
+                    className="font-black transition-all hover:opacity-80"
                     style={{
                       background: role === r ? th.primaryBg : '#eee',
                       color: role === r ? th.primaryText : '#666',
-                      border: `2px solid ${role === r ? '#000' : '#ccc'}`,
+                      border: `1.5px solid ${role === r ? '#000' : '#ccc'}`,
+                      fontSize: '0.65rem',
+                      padding: '2px 8px',
                     }}
                   >
                     {r}
                   </button>
                 ))}
               </div>
+              {/* 下段: ユーザー名 */}
+              <span className="font-black" style={{ color: th.titleColor, fontSize: '0.75rem' }}>
+                👤 {voterName}
+              </span>
             </div>
 
             {/* PDFビューア */}
