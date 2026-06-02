@@ -41,6 +41,7 @@ export default function EnkakuPage() {
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
+  const [score, setScore] = useState<string | null>(null)  // 審査員が押した採点数字
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
@@ -279,6 +280,24 @@ export default function EnkakuPage() {
                   mutedColor={th.mutedColor}
                   containerWidth={pdfContainerWidth}
                 />
+                {/* 審査員が押した採点数字をPDF中央に重ねて表示 */}
+                {score !== null && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}>
+                    <span style={{
+                      fontSize: '8rem', fontWeight: 900, lineHeight: 1,
+                      color: '#ffe600',
+                      textShadow: '0 0 12px #000, 0 0 4px #000',
+                      WebkitTextStroke: '3px #000',
+                    }}>
+                      {score}
+                    </span>
+                  </div>
+                )}
+
                 {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
                 {isAdmin && (
                   <div className="flex items-center gap-2" style={{ position: 'absolute', top: '8px', right: '8px' }}>
@@ -366,8 +385,13 @@ export default function EnkakuPage() {
             {['0', '1', '2', '3'].map((label) => (
               <button
                 key={label}
+                onClick={() => setScore((prev) => prev === label ? null : label)}
                 className="flex-1 font-black text-2xl py-4 hover:opacity-80 transition-opacity active:scale-95"
-                style={{ background: '#fff', color: th.titleColor, border: '2.5px solid #000' }}
+                style={{
+                  background: score === label ? th.primaryBg : '#fff',
+                  color: score === label ? th.primaryText : th.titleColor,
+                  border: `2.5px solid ${score === label ? '#000' : '#000'}`,
+                }}
               >
                 {label}
               </button>
