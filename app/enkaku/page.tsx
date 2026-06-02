@@ -231,50 +231,50 @@ export default function EnkakuPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-6 space-y-4">
-        {/* ユーザー名 + 役割切り替えカード（常に表示） */}
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ background: '#fff', border: '2.5px solid #000' }}
-        >
-          <span className="font-black text-sm" style={{ color: th.titleColor }}>
-            👤 {voterName}
-          </span>
-          <div className="flex items-center gap-1">
-            {(['回答者', '審査員'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => handleRoleChange(r)}
-                className="font-black text-xs px-3 py-1.5 transition-all hover:opacity-80"
-                style={{
-                  background: role === r ? th.primaryBg : '#eee',
-                  color: role === r ? th.primaryText : '#666',
-                  border: `2px solid ${role === r ? '#000' : '#ccc'}`,
-                }}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* 全体レイアウト: 左列（ユーザー名+PDF） + 右列（挙手リスト） */}
+        <div className="flex gap-3 items-stretch">
 
-        {/* PDFエリア + 挙手リスト（横並び） */}
-        <div className="flex gap-3 items-start">
-          {/* 左: PDFビューア（残りの幅・4:3比率） */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          {/* 左列: ユーザー名カード + PDFビューア */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0' }}>
+            {/* ユーザー名 + 役割切り替えカード */}
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ background: '#fff', border: '2.5px solid #000', borderBottom: 'none' }}
+            >
+              <span className="font-black text-sm" style={{ color: th.titleColor }}>
+                👤 {voterName}
+              </span>
+              <div className="flex items-center gap-1">
+                {(['回答者', '審査員'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => handleRoleChange(r)}
+                    className="font-black text-xs px-3 py-1.5 transition-all hover:opacity-80"
+                    style={{
+                      background: role === r ? th.primaryBg : '#eee',
+                      color: role === r ? th.primaryText : '#666',
+                      border: `2px solid ${role === r ? '#000' : '#ccc'}`,
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* PDFビューア */}
             {pdfLoading ? (
-              <div className="flex items-center justify-center" style={{ height: PDF_HEIGHT }}>
+              <div className="flex items-center justify-center" style={{ height: PDF_HEIGHT, border: '2.5px solid #000', background: '#f5f5f5' }}>
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
               <div ref={pdfContainerCallback} style={{ border: '2.5px solid #000', position: 'relative', background: '#f5f5f5' }}>
-                {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
                   currentPage={currentPage}
                   mutedColor={th.mutedColor}
                   containerWidth={pdfContainerWidth}
                 />
-
                 {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
                 {isAdmin && (
                   <div className="flex items-center gap-2" style={{ position: 'absolute', top: '8px', right: '8px' }}>
@@ -309,8 +309,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右: 挙手リスト（幅90px・PDFと同じ固定高さ） */}
-          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
+          {/* 右列: 挙手リスト（幅90px・左列全高に伸びる） */}
+          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
