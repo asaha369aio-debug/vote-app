@@ -41,6 +41,7 @@ export default function EnkakuPage() {
   const [currentPage, setCurrentPage] = useState(1)  // 全員に同期されるページ番号
   const [role, setRole] = useState<'回答者' | '審査員'>('回答者')  // ユーザーの役割
   const [hands, setHands] = useState<Hand[]>([])  // 挙手済みユーザー一覧
+  const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
 
@@ -97,10 +98,18 @@ export default function EnkakuPage() {
       })
     }, 2000)
 
+    // ResizeObserverでPDFコンテナ幅を動的に取得
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) setPdfContainerWidth(width)
+    })
+    if (pdfContainerRef.current) observer.observe(pdfContainerRef.current)
+
     return () => {
       supabase.removeChannel(pageCh)
       supabase.removeChannel(handsCh)
       clearInterval(poll)
+      observer.disconnect()
     }
   }, [router])
 
@@ -247,19 +256,20 @@ export default function EnkakuPage() {
 
         {/* PDFエリア + 挙手リスト（横並び） */}
         <div className="flex gap-3 items-start">
-          {/* 左: PDFビューア（4:3固定） */}
-          <div style={{ flex: 'none', height: PDF_HEIGHT, aspectRatio: '4/3' }}>
+          {/* 左: PDFビューア（残りの幅・4:3比率） */}
+          <div style={{ flex: 1, minWidth: 0 }}>
             {pdfLoading ? (
               <div className="flex items-center justify-center" style={{ height: PDF_HEIGHT }}>
                 <p className="font-black" style={{ color: th.mutedColor }}>読み込み中...</p>
               </div>
             ) : pdfUrl ? (
-              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', height: PDF_HEIGHT, aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
+              <div ref={pdfContainerRef} style={{ border: '2.5px solid #000', aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: '#f5f5f5' }}>
                 {/* SSR無効の動的インポートコンポーネントでCanvasレンダリング（モバイル対応） */}
                 <PdfViewer
                   pdfUrl={pdfUrl}
                   currentPage={currentPage}
                   mutedColor={th.mutedColor}
+                  containerWidth={pdfContainerWidth}
                 />
 
                 {/* 管理者のみ: PDF上に重ねたページ送りボタン */}
@@ -296,8 +306,8 @@ export default function EnkakuPage() {
             )}
           </div>
 
-          {/* 右: 挙手リスト（幅90px固定） */}
-          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', height: PDF_HEIGHT, display: 'flex', flexDirection: 'column' }}>
+          {/* 右: 挙手リスト（幅90px固定・PDFと同じ4:3高さ） */}
+          <div style={{ flex: 'none', width: 90, border: '2.5px solid #000', background: '#fff', aspectRatio: '4/3', display: 'flex', flexDirection: 'column' }}>
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
