@@ -314,7 +314,8 @@ export default function EnkakuPage() {
             <div className="px-3 py-2 font-black text-xs" style={{ borderBottom: '2px solid #000', background: '#000', color: '#ffe600' }}>
               ✋ 挙手 {hands.length > 0 && `(${hands.length})`}
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', WebkitOverflowScrolling: 'touch' }}>
+            {/* 5行分の高さでスクロール表示 */}
+            <div style={{ overflowY: 'auto', maxHeight: '150px', padding: '4px 0', WebkitOverflowScrolling: 'touch' }}>
               {hands.length === 0 ? (
                 <p className="text-xs text-center py-4" style={{ color: th.mutedColor }}>まだ挙手がありません</p>
               ) : (
