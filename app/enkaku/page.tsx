@@ -316,16 +316,6 @@ export default function EnkakuPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-4 space-y-3" style={{ overflowX: 'hidden' }}>
-        {/* 公開済み回答の表示エリア（全員に表示、空欄時は非表示） */}
-        {displayAnswer !== '' && (
-          <div
-            className="w-full font-black text-center py-3 px-4"
-            style={{ background: '#fff', border: '2.5px solid #000', fontSize: '1.1rem', color: th.titleColor, wordBreak: 'break-all' }}
-          >
-            {displayAnswer}
-          </div>
-        )}
-
         {/* 全体レイアウト: グリッド（左列=残り幅、右列=90px固定） */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '12px' }}>
 
@@ -374,12 +364,25 @@ export default function EnkakuPage() {
                   mutedColor={th.mutedColor}
                   containerWidth={pdfContainerWidth}
                 />
-                {/* 全審査員スコアの掛け合わせ結果をPDF中央にオーバーレイ表示 */}
+                {/* PublishedAnswerBanner: PDF下部にオーバーレイ表示（z-index: 1） */}
+                {displayAnswer !== '' && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    zIndex: 1, pointerEvents: 'none',
+                    background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
+                    padding: '10px 16px', fontWeight: 900, textAlign: 'center',
+                    fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all',
+                  }}>
+                    {displayAnswer}
+                  </div>
+                )}
+
+                {/* ScoreOverlay: PDF中央にオーバーレイ表示（z-index: 2、PublishedAnswerBannerの上） */}
                 {scores.length > 0 && (
                   <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    pointerEvents: 'none',
+                    pointerEvents: 'none', zIndex: 2,
                   }}>
                     <span style={{
                       fontSize: '8rem', fontWeight: 900, lineHeight: 1,
