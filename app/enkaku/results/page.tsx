@@ -23,6 +23,7 @@ type Result = {
   scores: { voter_name: string; score: number }[]
   total_score: number
   recorded_at: string
+  pdf_screenshot: string | null
 }
 
 export default function EnkakuResultsPage() {
@@ -79,15 +80,24 @@ export default function EnkakuResultsPage() {
               </div>
 
               <div className="px-4 py-3 space-y-3">
-                {/* 回答内容 */}
-                <div>
-                  <p className="font-black text-xs mb-1" style={{ color: th.mutedColor }}>回答</p>
-                  {r.answer.startsWith('data:image/') ? (
-                    <img src={r.answer} alt="回答" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', border: '1.5px solid #eee' }} />
-                  ) : (
-                    <p className="font-black text-sm" style={{ color: th.titleColor, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                      {r.answer || '（回答なし）'}
-                    </p>
+                {/* 回答内容 + PDFスクリーンショット横並び */}
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-xs mb-1" style={{ color: th.mutedColor }}>回答</p>
+                    {r.answer.startsWith('data:image/') ? (
+                      <img src={r.answer} alt="回答" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', border: '1.5px solid #eee' }} />
+                    ) : (
+                      <p className="font-black text-sm" style={{ color: th.titleColor, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                        {r.answer || '（回答なし）'}
+                      </p>
+                    )}
+                  </div>
+                  {/* PDFスクリーンショット */}
+                  {r.pdf_screenshot && (
+                    <div style={{ flexShrink: 0 }}>
+                      <p className="font-black text-xs mb-1" style={{ color: th.mutedColor }}>PDF</p>
+                      <img src={r.pdf_screenshot} alt="PDF" style={{ width: '120px', height: 'auto', border: '1.5px solid #000', display: 'block' }} />
+                    </div>
                   )}
                 </div>
 

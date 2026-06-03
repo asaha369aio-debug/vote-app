@@ -195,13 +195,20 @@ export default function EnkakuPage() {
   const handleNextPerson = async () => {
     const first = hands[0]
     if (!first) return
-    // 現在のスコア・回答をDBに記録
+    // PDFコンテナ内のcanvasをキャプチャしてスクリーンショットを取得
+    const pdfCanvas = pdfContainerRef.current?.querySelector('canvas')
+    let pdfScreenshot = ''
+    if (pdfCanvas) {
+      try { pdfScreenshot = pdfCanvas.toDataURL('image/jpeg', 0.8) } catch { /* CORS等でキャプチャ失敗時はスキップ */ }
+    }
+    // 現在のスコア・回答・PDFスクリーンショットをDBに記録
     const totalScore = scores.length > 0 ? scores.reduce((acc, s) => acc * s.score, 1) : 0
     await supabase.from('enkaku_results').insert({
       voter_name: first.voter_name,
       answer: displayAnswer,
       scores: scores.map((s) => ({ voter_name: s.voter_name, score: s.score })),
       total_score: totalScore,
+      pdf_screenshot: pdfScreenshot || null,
     })
     // クリア処理
     setHands((prev) => prev.slice(1))
