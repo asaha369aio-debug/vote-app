@@ -371,15 +371,15 @@ export default function EnkakuPage() {
                 >
                   次の人 →
                 </button>
-                <Link
-                  href="/enkaku/results"
-                  className="font-black text-xs px-3 py-1.5 hover:opacity-80 transition-opacity"
-                  style={{ background: '#0033cc', color: '#fff', border: '2px solid #000' }}
-                >
-                  結果一覧
-                </Link>
               </>
             )}
+            <Link
+              href="/enkaku/results"
+              className="font-black text-xs px-3 py-1.5 hover:opacity-80 transition-opacity"
+              style={{ background: '#0033cc', color: '#fff', border: '2px solid #000' }}
+            >
+              結果一覧
+            </Link>
           </div>
         </div>
       </header>
