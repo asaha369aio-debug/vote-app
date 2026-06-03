@@ -47,10 +47,14 @@ export default function EnkakuPage() {
   const [scores, setScores] = useState<Score[]>([])             // 全審査員の送信済みスコア
   const [answerInput, setAnswerInput] = useState('')            // 回答者の入力テキスト（ローカル）
   const [displayAnswer, setDisplayAnswer] = useState('')        // 全員に表示される公開済み回答
+  const [inputMode, setInputMode] = useState<'text' | 'draw'>('text')  // 入力モード
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   const answerTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const drawCanvasRef = useRef<HTMLCanvasElement>(null)
+  const isDrawingRef = useRef(false)
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null)
 
   // マウント直後に幅を取得するコールバックref（ResizeObserverのタイミング問題を回避）
   const pdfContainerCallback = useCallback((node: HTMLDivElement | null) => {
@@ -208,10 +212,59 @@ export default function EnkakuPage() {
     await supabase.from('pdf_settings').update({ current_answer: '' }).eq('id', 1)
   }
 
-  // 回答者: 入力テキストをDBに保存して全員に公開
+  // canvasのタッチ・マウス座標をcanvas内座標に変換
+  const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = drawCanvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const src = 'touches' in e ? e.touches[0] : e
+    return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY }
+  }
+
+  const handleDrawStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    isDrawingRef.current = true
+    lastPosRef.current = getCanvasPos(e)
+  }
+
+  const handleDrawMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    if (!isDrawingRef.current || !lastPosRef.current) return
+    const ctx = drawCanvasRef.current!.getContext('2d')!
+    const pos = getCanvasPos(e)
+    ctx.beginPath()
+    ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = 4
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.stroke()
+    lastPosRef.current = pos
+  }
+
+  const handleDrawEnd = () => {
+    isDrawingRef.current = false
+    lastPosRef.current = null
+  }
+
+  const clearCanvas = () => {
+    const canvas = drawCanvasRef.current
+    if (!canvas) return
+    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
+  // 回答者: テキストまたはcanvas画像をDBに保存して全員に公開
   const handlePublishAnswer = async () => {
-    setDisplayAnswer(answerInput)
-    await supabase.from('pdf_settings').update({ current_answer: answerInput }).eq('id', 1)
+    let value = answerInput
+    if (inputMode === 'draw') {
+      const canvas = drawCanvasRef.current
+      if (!canvas) return
+      value = canvas.toDataURL('image/png')
+    }
+    setDisplayAnswer(value)
+    await supabase.from('pdf_settings').update({ current_answer: value }).eq('id', 1)
   }
 
   // 審査員: 選択中のスコアを送信（同名なら上書きupsert）
@@ -379,10 +432,16 @@ export default function EnkakuPage() {
                     position: 'absolute', bottom: 0, left: 0, right: 0,
                     zIndex: 1, pointerEvents: 'none',
                     background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
-                    padding: '10px 16px', fontWeight: 900, textAlign: 'center',
-                    fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all', whiteSpace: 'pre-wrap',
+                    padding: '10px 16px', textAlign: 'center',
                   }}>
-                    {displayAnswer}
+                    {displayAnswer.startsWith('data:image/') ? (
+                      // フリーハンド画像の場合はimgタグで表示
+                      <img src={displayAnswer} alt="回答" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain' }} />
+                    ) : (
+                      <span style={{ fontWeight: 900, fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                        {displayAnswer}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -461,15 +520,62 @@ export default function EnkakuPage() {
         {/* 回答者のみ: テキスト入力ボックス + 挙手/公開ボタン（常に表示） */}
         {role === '回答者' && (
           <div className="space-y-3">
-            <textarea
-              ref={answerTextareaRef}
-              value={answerInput}
-              onChange={(e) => setAnswerInput(e.target.value)}
-              placeholder="回答を入力してください"
-              rows={1}
-              className="w-full focus:outline-none resize-none overflow-hidden"
-              style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000', lineHeight: '1.5' }}
-            />
+            {/* 入力モード切替ボタン */}
+            <div className="flex gap-1">
+              {(['text', 'draw'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setInputMode(mode)}
+                  className="font-black text-xs px-3 py-1.5 transition-all hover:opacity-80"
+                  style={{
+                    background: inputMode === mode ? '#000' : '#fff',
+                    color: inputMode === mode ? '#ffe600' : '#000',
+                    border: `2px solid #000`,
+                  }}
+                >
+                  {mode === 'text' ? '✏️ テキスト' : '🖊 フリーハンド'}
+                </button>
+              ))}
+            </div>
+
+            {/* テキストモード */}
+            {inputMode === 'text' && (
+              <textarea
+                ref={answerTextareaRef}
+                value={answerInput}
+                onChange={(e) => setAnswerInput(e.target.value)}
+                placeholder="回答を入力してください"
+                rows={1}
+                className="w-full focus:outline-none resize-none overflow-hidden"
+                style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000', lineHeight: '1.5' }}
+              />
+            )}
+
+            {/* フリーハンドモード */}
+            {inputMode === 'draw' && (
+              <div style={{ border: '2.5px solid #000', background: '#fff', position: 'relative' }}>
+                <canvas
+                  ref={drawCanvasRef}
+                  width={600}
+                  height={200}
+                  style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'none', cursor: 'crosshair' }}
+                  onMouseDown={handleDrawStart}
+                  onMouseMove={handleDrawMove}
+                  onMouseUp={handleDrawEnd}
+                  onMouseLeave={handleDrawEnd}
+                  onTouchStart={handleDrawStart}
+                  onTouchMove={handleDrawMove}
+                  onTouchEnd={handleDrawEnd}
+                />
+                <button
+                  onClick={clearCanvas}
+                  className="absolute top-2 right-2 font-black text-xs px-2 py-1 hover:opacity-80"
+                  style={{ background: '#ff2200', color: '#fff', border: '1.5px solid #000' }}
+                >
+                  クリア
+                </button>
+              </div>
+            )}
             <div className="flex gap-3">
               {/* すでに挙手済みの場合はボタンを無効化 */}
               <button
