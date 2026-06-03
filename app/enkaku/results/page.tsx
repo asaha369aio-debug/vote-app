@@ -82,9 +82,13 @@ export default function EnkakuResultsPage() {
                 {/* 回答内容 */}
                 <div>
                   <p className="font-black text-xs mb-1" style={{ color: th.mutedColor }}>回答</p>
-                  <p className="font-black text-sm" style={{ color: th.titleColor }}>
-                    {r.answer || '（回答なし）'}
-                  </p>
+                  {r.answer.startsWith('data:image/') ? (
+                    <img src={r.answer} alt="回答" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', border: '1.5px solid #eee' }} />
+                  ) : (
+                    <p className="font-black text-sm" style={{ color: th.titleColor, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                      {r.answer || '（回答なし）'}
+                    </p>
+                  )}
                 </div>
 
                 {/* 審査員スコア */}
