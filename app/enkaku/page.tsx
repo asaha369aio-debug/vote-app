@@ -380,7 +380,7 @@ export default function EnkakuPage() {
                     zIndex: 1, pointerEvents: 'none',
                     background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
                     padding: '10px 16px', fontWeight: 900, textAlign: 'center',
-                    fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all',
+                    fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all', whiteSpace: 'pre-wrap',
                   }}>
                     {displayAnswer}
                   </div>
