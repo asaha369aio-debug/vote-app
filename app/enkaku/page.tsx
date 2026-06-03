@@ -50,6 +50,7 @@ export default function EnkakuPage() {
   const [pdfContainerWidth, setPdfContainerWidth] = useState(0)
   const pdfFileInputRef = useRef<HTMLInputElement>(null)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
+  const answerTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // マウント直後に幅を取得するコールバックref（ResizeObserverのタイミング問題を回避）
   const pdfContainerCallback = useCallback((node: HTMLDivElement | null) => {
@@ -226,6 +227,14 @@ export default function EnkakuPage() {
       return exists ? prev.map((s) => s.voter_name === voterName ? data as Score : s) : [...prev, data as Score]
     })
   }
+
+  // answerInputの内容に応じてtextareaの高さを自動調整
+  useEffect(() => {
+    const el = answerTextareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [answerInput])
 
   // 挙手ボタン: DBに登録しつつローカルにも即時反映（楽観的更新）
   const handleRaiseHand = async () => {
@@ -452,13 +461,14 @@ export default function EnkakuPage() {
         {/* 回答者のみ: テキスト入力ボックス + 挙手/公開ボタン（常に表示） */}
         {role === '回答者' && (
           <div className="space-y-3">
-            <input
-              type="text"
+            <textarea
+              ref={answerTextareaRef}
               value={answerInput}
               onChange={(e) => setAnswerInput(e.target.value)}
               placeholder="回答を入力してください"
-              className="w-full focus:outline-none"
-              style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000' }}
+              rows={1}
+              className="w-full focus:outline-none resize-none overflow-hidden"
+              style={{ border: '2.5px solid #000', padding: '14px 16px', fontSize: '1rem', background: '#fff', color: '#000', lineHeight: '1.5' }}
             />
             <div className="flex gap-3">
               {/* すでに挙手済みの場合はボタンを無効化 */}
