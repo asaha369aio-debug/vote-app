@@ -30,11 +30,13 @@ export default function EnkakuResultsPage() {
   const router = useRouter()
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     // 認証チェック
     if (sessionStorage.getItem('siteAuth') !== '1') { router.replace('/'); return }
     if (!localStorage.getItem('voterName')) { router.replace('/'); return }
+    setIsAdmin(localStorage.getItem('isAdmin') === '1')
 
     // 結果一覧を新しい順に取得
     supabase.from('enkaku_results')
@@ -101,8 +103,8 @@ export default function EnkakuResultsPage() {
                   )}
                 </div>
 
-                {/* 審査員スコア */}
-                {r.scores.length > 0 && (
+                {/* 審査員スコア（管理者のみ表示） */}
+                {isAdmin && r.scores.length > 0 && (
                   <div>
                     <p className="font-black text-xs mb-1" style={{ color: th.mutedColor }}>審査員スコア</p>
                     <div className="flex flex-wrap gap-2">
