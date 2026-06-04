@@ -436,9 +436,11 @@ export default function EnkakuPage() {
                 {/* PublishedAnswerBanner: PDF下部にオーバーレイ表示（z-index: 1） */}
                 {displayAnswer !== '' && (
                   <div style={{
-                    position: 'absolute', left: 0, right: 0, bottom: 0,
-                    // フリーハンド画像はPDF縦幅の半分から下部まで・テキストは下端の帯
-                    top: displayAnswer.startsWith('data:image/') ? '50%' : undefined,
+                    position: 'absolute', left: 0, right: 0,
+                    // フリーハンド画像: 中央より下に4:3固定サイズ / テキスト: 下端の帯
+                    ...(displayAnswer.startsWith('data:image/')
+                      ? { top: '50%', aspectRatio: '4/3' }
+                      : { bottom: 0 }),
                     zIndex: 1, pointerEvents: 'none',
                     background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
                     padding: displayAnswer.startsWith('data:image/') ? 0 : '10px 16px',
@@ -446,8 +448,8 @@ export default function EnkakuPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {displayAnswer.startsWith('data:image/') ? (
-                      // フリーハンド画像: 4:3で領域全体に収まるよう表示
-                      <img src={displayAnswer} alt="回答" style={{ width: '100%', height: '100%', objectFit: 'contain', aspectRatio: '4/3', display: 'block' }} />
+                      // フリーハンド画像: 4:3のバナー内に収める
+                      <img src={displayAnswer} alt="回答" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     ) : (
                       <span style={{ fontWeight: 900, fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                         {displayAnswer}
