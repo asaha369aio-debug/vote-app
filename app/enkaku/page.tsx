@@ -564,7 +564,7 @@ export default function EnkakuPage() {
                 <canvas
                   ref={drawCanvasRef}
                   width={600}
-                  height={200}
+                  height={450}
                   style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'none', cursor: 'crosshair' }}
                   onMouseDown={handleDrawStart}
                   onMouseMove={handleDrawMove}
