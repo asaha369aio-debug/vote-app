@@ -436,14 +436,18 @@ export default function EnkakuPage() {
                 {/* PublishedAnswerBanner: PDF下部にオーバーレイ表示（z-index: 1） */}
                 {displayAnswer !== '' && (
                   <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    position: 'absolute', left: 0, right: 0, bottom: 0,
+                    // フリーハンド画像はPDF縦幅の半分から下部まで・テキストは下端の帯
+                    top: displayAnswer.startsWith('data:image/') ? '50%' : undefined,
                     zIndex: 1, pointerEvents: 'none',
                     background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
-                    padding: '10px 16px', textAlign: 'center',
+                    padding: displayAnswer.startsWith('data:image/') ? 0 : '10px 16px',
+                    textAlign: 'center',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {displayAnswer.startsWith('data:image/') ? (
-                      // フリーハンド画像の場合はimgタグで表示
-                      <img src={displayAnswer} alt="回答" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain' }} />
+                      // フリーハンド画像: 4:3で領域全体に収まるよう表示
+                      <img src={displayAnswer} alt="回答" style={{ width: '100%', height: '100%', objectFit: 'contain', aspectRatio: '4/3', display: 'block' }} />
                     ) : (
                       <span style={{ fontWeight: 900, fontSize: '1.05rem', color: th.titleColor, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                         {displayAnswer}
