@@ -437,9 +437,9 @@ export default function EnkakuPage() {
                 {displayAnswer !== '' && (
                   <div style={{
                     position: 'absolute', left: 0, right: 0,
-                    // フリーハンド画像: 中央より下に4:3固定サイズ / テキスト: 下端の帯
+                    // フリーハンド画像: PDF中央から下部まで / テキスト: 下端の帯
                     ...(displayAnswer.startsWith('data:image/')
-                      ? { top: '50%', aspectRatio: '4/3' }
+                      ? { top: '50%', bottom: 0 }
                       : { bottom: 0 }),
                     zIndex: 1, pointerEvents: 'none',
                     background: 'rgba(255,255,255,0.92)', borderTop: '2.5px solid #000',
