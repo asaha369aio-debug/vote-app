@@ -67,14 +67,12 @@ export default function VotePage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const handleLogout = () => { localStorage.removeItem('isAdmin'); setIsAdmin(false); setFloatingMenuOpen(false) }
+  const handleLogout = () => { localStorage.removeItem('isAdmin'); setIsAdmin(false); setFloatingMenuOpen(false); fetch('/api/admin/logout', { method: 'POST' }) }
   const handleSiteLogout = () => { sessionStorage.removeItem(SITE_AUTH_KEY); router.replace('/'); setFloatingMenuOpen(false) }
   const handleDeletePoll = async (pollId: string) => {
     setDeletingId(pollId)
-    await supabase.from('votes').delete().eq('poll_id', pollId)
-    await supabase.from('poll_options').delete().eq('poll_id', pollId)
-    await supabase.from('polls').delete().eq('id', pollId)
-    setPolls((prev) => prev.filter((p) => p.id !== pollId))
+    const res = await fetch(`/api/admin/polls/${pollId}`, { method: 'DELETE' })
+    if (res.ok) setPolls((prev) => prev.filter((p) => p.id !== pollId))
     setConfirmDeleteId(null); setDeletingId(null)
   }
   const handleNameEdit = (e: React.FormEvent) => {

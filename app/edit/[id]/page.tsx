@@ -91,15 +91,12 @@ export default function EditPoll() {
     const validOptions = options.filter((o) => o.text.trim() !== '')
     if (!question.trim() || validOptions.length < 2) return
     setLoading(true)
-    await supabase.from('polls').update({ question: question.trim() }).eq('id', id)
-    if (removedOptionIds.length > 0) {
-      await supabase.from('votes').delete().in('option_id', removedOptionIds)
-      await supabase.from('poll_options').delete().in('id', removedOptionIds)
-    }
-    const existingUpdates = validOptions.filter((o) => o.id !== null)
-    await Promise.all(existingUpdates.map((o) => supabase.from('poll_options').update({ text: o.text.trim() }).eq('id', o.id!)))
-    const newOptions = validOptions.filter((o) => o.id === null)
-    if (newOptions.length > 0) await supabase.from('poll_options').insert(newOptions.map((o) => ({ poll_id: id, text: o.text.trim() })))
+    const res = await fetch(`/api/admin/polls/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question.trim(), options: validOptions, removedOptionIds }),
+    })
+    if (!res.ok) { setLoading(false); return }
     router.push('/vote')
   }
 

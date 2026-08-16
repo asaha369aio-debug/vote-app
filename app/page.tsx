@@ -90,10 +90,14 @@ export default function Home() {
     const changedKeys = TOGGLEABLE_KEYS.filter((key) => pendingFlags[key] !== flags[key])
     if (changedKeys.length === 0) return
     setSavingFlags(true)
-    await Promise.all(changedKeys.map((key) =>
-      supabase.from('feature_flags').update({ enabled: pendingFlags[key] }).eq('key', key)
-    ))
-    setFlags((prev) => ({ ...prev, ...pendingFlags }))
+    const changes: Record<string, boolean> = {}
+    changedKeys.forEach((key) => { changes[key] = pendingFlags[key] })
+    const res = await fetch('/api/admin/feature-flags', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ changes }),
+    })
+    if (res.ok) setFlags((prev) => ({ ...prev, ...pendingFlags }))
     setSavingFlags(false)
   }
 
@@ -113,6 +117,7 @@ export default function Home() {
   }
   const handleAdminLogout = () => {
     localStorage.removeItem('isAdmin'); setIsAdmin(false); setFloatingMenuOpen(false)
+    fetch('/api/admin/logout', { method: 'POST' })
   }
   const handleSiteLogout = () => {
     sessionStorage.removeItem(SITE_AUTH_KEY); setSiteAuthed(false); setFloatingMenuOpen(false)

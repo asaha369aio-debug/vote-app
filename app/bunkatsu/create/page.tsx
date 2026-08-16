@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 
 const QUICK_WORDS_KEY = 'quickWords'
 const DEFAULT_QUICK_WORDS = ['はい', 'いいえ', 'どちらでもない', '賛成', '反対', 'その他']
@@ -73,9 +72,12 @@ export default function CreateBunkatsu() {
     const validOptions = options.filter((o) => o.trim() !== '')
     if (!question.trim() || validOptions.length < 2) return
     setLoading(true)
-    const { data: poll, error } = await supabase.from('polls').insert({ question: question.trim(), category: 'bunkatsu' }).select().single()
-    if (error || !poll) { setLoading(false); return }
-    await supabase.from('poll_options').insert(validOptions.map((text) => ({ poll_id: poll.id, text })))
+    const res = await fetch('/api/admin/polls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question.trim(), options: validOptions, category: 'bunkatsu' }),
+    })
+    if (!res.ok) { setLoading(false); return }
     router.push(`/bunkatsu`)
   }
 
