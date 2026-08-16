@@ -9,6 +9,7 @@ export type Poll = {
   id: string
   question: string
   created_at: string
+  category: string
 }
 
 export type PollOption = {

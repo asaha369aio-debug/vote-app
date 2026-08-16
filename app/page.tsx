@@ -31,10 +31,11 @@ const FEATURES = [
   { key: 'katten',  href: '/katten',  icon: '📊', label: '加点',   desc: '対象を選んでリアルタイム加点',         accent: '#0033cc' },
   { key: 'enkaku',  href: '/enkaku',  icon: '📡', label: '遠隔加点', desc: '遠隔から対象を選んでリアルタイム加点', accent: '#00aa44' },
   { key: 'tap',     href: '/tap',     icon: '🎹', label: 'TAP',    desc: '音声ファイルを読み込んでパッド演奏',   accent: '#cc00ff' },
+  { key: 'bunkatsu', href: '/bunkatsu', icon: '📋', label: '分割一覧', desc: '投票とは別に管理する分割一覧',       accent: '#ff2200' },
 ]
 
 // 管理者がオン/オフできる機能キー
-const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'tap']
+const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'tap', 'bunkatsu']
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -48,7 +49,9 @@ export default function Home() {
   const [sitePasswordError, setSitePasswordError] = useState(false)
   const [sitePasswordLoading, setSitePasswordLoading] = useState(false)
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
-  const [flags, setFlags] = useState<Record<string, boolean>>({})  // 機能の表示フラグ
+  const [flags, setFlags] = useState<Record<string, boolean>>({})  // 全ユーザーに適用中の表示フラグ
+  const [pendingFlags, setPendingFlags] = useState<Record<string, boolean>>({})  // 管理者が編集中（未確定）の表示フラグ
+  const [savingFlags, setSavingFlags] = useState(false)
 
   useEffect(() => {
     const authed = sessionStorage.getItem(SITE_AUTH_KEY) === '1'
@@ -64,21 +67,34 @@ export default function Home() {
         const map: Record<string, boolean> = {}
         data?.forEach((r) => { map[r.key] = r.enabled })
         setFlags(map)
+        setPendingFlags(map)
       })
 
-    // リアルタイムでフラグ変更を反映
+    // リアルタイムでフラグ変更を反映（確定操作をした全ユーザーの画面に反映される）
     const ch = supabase.channel('feature-flags')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feature_flags' }, (payload) => {
         setFlags((prev) => ({ ...prev, [payload.new.key]: payload.new.enabled }))
+        setPendingFlags((prev) => ({ ...prev, [payload.new.key]: payload.new.enabled }))
       }).subscribe()
 
     return () => { supabase.removeChannel(ch) }
   }, [])
 
-  const toggleFlag = async (key: string) => {
-    const next = !flags[key]
-    setFlags((prev) => ({ ...prev, [key]: next }))
-    await supabase.from('feature_flags').update({ enabled: next }).eq('key', key)
+  const togglePendingFlag = (key: string) => {
+    setPendingFlags((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const hasPendingChanges = TOGGLEABLE_KEYS.some((key) => pendingFlags[key] !== flags[key])
+
+  const confirmFlags = async () => {
+    const changedKeys = TOGGLEABLE_KEYS.filter((key) => pendingFlags[key] !== flags[key])
+    if (changedKeys.length === 0) return
+    setSavingFlags(true)
+    await Promise.all(changedKeys.map((key) =>
+      supabase.from('feature_flags').update({ enabled: pendingFlags[key] }).eq('key', key)
+    ))
+    setFlags((prev) => ({ ...prev, ...pendingFlags }))
+    setSavingFlags(false)
   }
 
   const handleSitePasswordSubmit = async (e: React.FormEvent) => {
@@ -176,18 +192,19 @@ export default function Home() {
         {isAdmin && (
           <div style={{ background: '#000', border: '2.5px solid #000' }} className="p-4">
             <p className="text-xs font-black mb-3" style={{ color: '#ffe600', letterSpacing: '0.1em' }}>🔧 管理者: 機能の表示設定</p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {TOGGLEABLE_KEYS.map((key) => {
                 const f = FEATURES.find((f) => f.key === key)!
-                const enabled = flags[key] !== false
+                const enabled = pendingFlags[key] !== false
+                const changed = pendingFlags[key] !== flags[key]
                 return (
                   <button
                     key={key}
-                    onClick={() => toggleFlag(key)}
+                    onClick={() => togglePendingFlag(key)}
                     style={{
                       background: enabled ? f.accent : '#333',
                       color: '#fff',
-                      border: `2px solid ${enabled ? f.accent : '#555'}`,
+                      border: `2px solid ${changed ? '#ffe600' : (enabled ? f.accent : '#555')}`,
                       padding: '8px 20px',
                       fontWeight: 900,
                       fontSize: '0.9rem',
@@ -199,6 +216,21 @@ export default function Home() {
                   </button>
                 )
               })}
+              <button
+                onClick={confirmFlags}
+                disabled={!hasPendingChanges || savingFlags}
+                style={{
+                  background: hasPendingChanges ? '#ffe600' : '#333',
+                  color: hasPendingChanges ? '#000' : '#777',
+                  border: '2px solid #ffe600',
+                  padding: '8px 20px',
+                  fontWeight: 900,
+                  fontSize: '0.9rem',
+                }}
+                className="transition-opacity hover:opacity-80 disabled:opacity-50"
+              >
+                {savingFlags ? '反映中...' : '✅ 確定して全員に反映'}
+              </button>
             </div>
           </div>
         )}

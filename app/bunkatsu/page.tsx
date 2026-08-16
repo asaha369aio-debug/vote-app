@@ -32,7 +32,7 @@ const cardStyle = (i: number): React.CSSProperties => ({
   borderLeft: `6px solid ${th.accents[i % 4]}`,
 })
 
-export default function VotePage() {
+export default function BunkatsuPage() {
   const router = useRouter()
   const [polls, setPolls] = useState<Poll[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
@@ -46,7 +46,7 @@ export default function VotePage() {
 
   const fetchPolls = async () => {
     setReloading(true)
-    const { data } = await supabase.from('polls').select('*').eq('category', 'vote').order('created_at', { ascending: false })
+    const { data } = await supabase.from('polls').select('*').eq('category', 'bunkatsu').order('created_at', { ascending: false })
     setPolls(data ?? [])
     setReloading(false)
   }
@@ -60,8 +60,8 @@ export default function VotePage() {
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
     fetchPolls()
 
-    const channel = supabase.channel('polls-list-vote')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'polls', filter: 'category=eq.vote' }, (payload) => {
+    const channel = supabase.channel('polls-list-bunkatsu')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'polls', filter: 'category=eq.bunkatsu' }, (payload) => {
         setPolls((prev) => [payload.new as Poll, ...prev])
       }).subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -96,7 +96,7 @@ export default function VotePage() {
               <span className={reloading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
             </button>
             <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
-            <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>投票</span>
+            <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>分割一覧</span>
           </div>
           <div className="flex gap-2 items-center flex-wrap justify-end">
             {editingName ? (
@@ -111,7 +111,7 @@ export default function VotePage() {
               </button>
             )}
             {isAdmin ? (
-              <Link href="/create" className="font-black px-4 py-1.5 text-sm hover:opacity-80 transition-opacity" style={{ background: th.primaryBg, color: th.primaryText }}>＋ 新しい投票</Link>
+              <Link href="/bunkatsu/create" className="font-black px-4 py-1.5 text-sm hover:opacity-80 transition-opacity" style={{ background: th.primaryBg, color: th.primaryText }}>＋ 新しい分割一覧</Link>
             ) : (
               <Link href="/admin/login" className="text-sm px-3 py-1.5 hover:opacity-80 transition-opacity" style={{ border: '1px solid #000', borderRadius: '999px' }}>管理者ログイン</Link>
             )}
@@ -119,12 +119,12 @@ export default function VotePage() {
         </div>
       </header>
 
-      {/* 投票リスト */}
+      {/* 分割一覧リスト */}
       <main className="max-w-2xl mx-auto px-6 py-8">
         {polls.length === 0 ? (
           <div className="text-center py-20" style={{ color: th.mutedColor }}>
             <p className="text-5xl mb-4">📭</p>
-            <p className="text-lg font-black">まだ投票がありません</p>
+            <p className="text-lg font-black">まだ分割一覧がありません</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -137,7 +137,7 @@ export default function VotePage() {
                   <div style={cardStyle(i)}>
                     {isAdmin && isConfirming ? (
                       <div className="px-5 py-4 flex items-center justify-between gap-3">
-                        <p className="text-sm font-black" style={{ color: th.titleColor }}>この投票を削除しますか？</p>
+                        <p className="text-sm font-black" style={{ color: th.titleColor }}>この項目を削除しますか？</p>
                         <div className="flex gap-2 flex-shrink-0">
                           <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
                             {isDeleting ? '削除中...' : '削除する'}
@@ -152,7 +152,7 @@ export default function VotePage() {
                         <span className="text-sm font-black flex-shrink-0 mt-0.5 flex items-center justify-center" style={{ color: th.numText, background: th.numBg, width: '24px', height: '24px', minWidth: '24px' }}>
                           {i + 1}
                         </span>
-                        <Link href={`/poll/${poll.id}`} className="flex-1 min-w-0">
+                        <Link href={`/bunkatsu/poll/${poll.id}`} className="flex-1 min-w-0">
                           <p className="font-black text-base leading-snug" style={{ color: th.titleColor }}>{poll.question}</p>
                           <div className="flex items-center gap-3 mt-1">
                             <p className="text-xs" style={{ color: th.mutedColor }}>{new Date(poll.created_at).toLocaleString('ja-JP')}</p>
@@ -165,7 +165,7 @@ export default function VotePage() {
                         </Link>
                         {isAdmin && (
                           <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                            <Link href={`/edit/${poll.id}`} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="編集">✏️</Link>
+                            <Link href={`/bunkatsu/edit/${poll.id}`} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="編集">✏️</Link>
                             <button onClick={() => setConfirmDeleteId(poll.id)} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="削除">🗑️</button>
                           </div>
                         )}

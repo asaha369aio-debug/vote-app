@@ -11,7 +11,7 @@ const DEFAULT_QUICK_WORDS = ['はい', 'いいえ', 'どちらでもない', '�
 // F デザイン カラーブロック用アクセントカラー
 const ACCENTS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600']
 
-export default function CreatePoll() {
+export default function CreateBunkatsu() {
   const router = useRouter()
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState(['', ''])
@@ -73,10 +73,10 @@ export default function CreatePoll() {
     const validOptions = options.filter((o) => o.trim() !== '')
     if (!question.trim() || validOptions.length < 2) return
     setLoading(true)
-    const { data: poll, error } = await supabase.from('polls').insert({ question: question.trim(), category: 'vote' }).select().single()
+    const { data: poll, error } = await supabase.from('polls').insert({ question: question.trim(), category: 'bunkatsu' }).select().single()
     if (error || !poll) { setLoading(false); return }
     await supabase.from('poll_options').insert(validOptions.map((text) => ({ poll_id: poll.id, text })))
-    router.push(`/vote`)
+    router.push(`/bunkatsu`)
   }
 
   return (
@@ -84,9 +84,9 @@ export default function CreatePoll() {
       {/* ヘッダー */}
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/vote" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
+          <Link href="/bunkatsu" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
           <span className="text-black/40 font-bold">|</span>
-          <h1 className="text-xl font-black text-black">新しい投票を作成</h1>
+          <h1 className="text-xl font-black text-black">新しい分割一覧を作成</h1>
         </div>
       </header>
 
@@ -164,7 +164,7 @@ export default function CreatePoll() {
             {!focusedField && <p className="text-xs text-black/40 mt-2">入力欄をクリックしてからワードを押すと入力されます</p>}
           </div>
 
-          {/* 投票作成フォーム */}
+          {/* 作成フォーム */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-black text-black mb-2">📝 質問</label>
@@ -214,7 +214,7 @@ export default function CreatePoll() {
               style={{ background: '#000000', color: '#ffe600' }}
               className="w-full font-black py-3 transition-opacity hover:opacity-80 disabled:opacity-50 text-lg"
             >
-              {loading ? '作成中...' : '🚀 投票を作成する'}
+              {loading ? '作成中...' : '🚀 分割一覧を作成する'}
             </button>
           </form>
         </div>
