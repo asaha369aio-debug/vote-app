@@ -90,12 +90,22 @@ export default function EditPoll() {
     if (res.ok) {
       const { word } = await res.json()
       setQuickWords((prev) => prev.some((w) => w.id === word.id) ? prev : [...prev, word])
+    } else if (res.status === 401) {
+      alert('管理者セッションが切れています。管理者ログインをやり直してください。')
+    } else {
+      alert('ワードの追加に失敗しました。')
     }
   }
 
   const deleteWord = async (id: string) => {
-    setQuickWords((prev) => prev.filter((w) => w.id !== id))
-    await fetch(`/api/admin/quick-words/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/admin/quick-words/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setQuickWords((prev) => prev.filter((w) => w.id !== id))
+    } else if (res.status === 401) {
+      alert('管理者セッションが切れています。管理者ログインをやり直してください。')
+    } else {
+      alert('ワードの削除に失敗しました。')
+    }
   }
 
   const toggleKeyboardOff = () => {
