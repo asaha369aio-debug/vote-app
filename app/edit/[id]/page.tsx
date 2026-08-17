@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 
 const QUICK_WORDS_KEY = 'quickWords'
 const DEFAULT_QUICK_WORDS = ['はい', 'いいえ', 'どちらでもない', '賛成', '反対', 'その他']
+const KEYBOARD_OFF_KEY = 'keyboardOff'
 
 const ACCENTS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600']
 
@@ -25,6 +26,7 @@ export default function EditPoll() {
   const [newWord, setNewWord] = useState('')
   const [showAddWord, setShowAddWord] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [keyboardOff, setKeyboardOff] = useState(false)
 
   const questionRef = useRef<HTMLInputElement>(null)
   const optionRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -33,6 +35,7 @@ export default function EditPoll() {
     if (localStorage.getItem('isAdmin') !== '1') { router.replace('/'); return }
     const saved = localStorage.getItem(QUICK_WORDS_KEY)
     setQuickWords(saved ? JSON.parse(saved) : DEFAULT_QUICK_WORDS)
+    setKeyboardOff(localStorage.getItem(KEYBOARD_OFF_KEY) === '1')
     const load = async () => {
       const [{ data: poll }, { data: opts }] = await Promise.all([
         supabase.from('polls').select('*').eq('id', id).single(),
@@ -78,6 +81,11 @@ export default function EditPoll() {
   }
 
   const removeWord = (word: string) => setQuickWords(quickWords.filter((w) => w !== word))
+  const toggleKeyboardOff = () => {
+    const next = !keyboardOff
+    setKeyboardOff(next)
+    localStorage.setItem(KEYBOARD_OFF_KEY, next ? '1' : '0')
+  }
   const updateOption = (index: number, text: string) => setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, text } : o)))
   const removeOption = (index: number) => {
     const target = options[index]
@@ -123,11 +131,22 @@ export default function EditPoll() {
 
           {/* クイック入力パレット */}
           <div style={{ background: '#ffe600', border: '2px solid #000000' }} className="p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
               <p className="text-sm font-black text-black">⚡ クイック入力</p>
-              <button type="button" onClick={() => setShowAddWord((v) => !v)} style={{ color: '#0033cc' }} className="text-xs font-black hover:opacity-60 transition-opacity">
-                {showAddWord ? 'キャンセル' : '＋ ワードを追加'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={toggleKeyboardOff}
+                  style={{ background: keyboardOff ? '#ff2200' : '#ffffff', color: keyboardOff ? '#ffffff' : '#000000', border: '1.5px solid #000000' }}
+                  className="text-xs font-black px-2 py-1 transition-opacity hover:opacity-80"
+                  title="端末のキーボードが出ないようにします"
+                >
+                  ⌨️ キーボード: {keyboardOff ? 'OFF' : 'ON'}
+                </button>
+                <button type="button" onClick={() => setShowAddWord((v) => !v)} style={{ color: '#0033cc' }} className="text-xs font-black hover:opacity-60 transition-opacity">
+                  {showAddWord ? 'キャンセル' : '＋ ワードを追加'}
+                </button>
+              </div>
             </div>
 
             {showAddWord && (
@@ -164,17 +183,24 @@ export default function EditPoll() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-black text-black mb-2">📝 質問</label>
-              <input
-                ref={questionRef}
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onFocus={() => setFocusedField('question')}
-                placeholder="例: 好きなプログラミング言語は？"
-                style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
-                className="w-full px-4 py-3 focus:outline-none"
-                required
-              />
+              <div className="flex gap-2">
+                <input
+                  ref={questionRef}
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onFocus={() => setFocusedField('question')}
+                  placeholder="例: 好きなプログラミング言語は？"
+                  style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
+                  className="flex-1 px-4 py-3 focus:outline-none"
+                  readOnly={keyboardOff}
+                  inputMode={keyboardOff ? 'none' : 'text'}
+                  required
+                />
+                {keyboardOff && question && (
+                  <button type="button" onClick={() => setQuestion('')} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="px-3 font-black hover:opacity-60 transition-opacity" title="クリア">✕</button>
+                )}
+              </div>
             </div>
 
             <div>
@@ -195,7 +221,12 @@ export default function EditPoll() {
                       placeholder={`選択肢 ${i + 1}`}
                       style={{ border: `2px solid ${ACCENTS[i % 4]}`, background: '#ffffff', color: '#000000' }}
                       className="flex-1 px-4 py-2 focus:outline-none"
+                      readOnly={keyboardOff}
+                      inputMode={keyboardOff ? 'none' : 'text'}
                     />
+                    {keyboardOff && opt.text && (
+                      <button type="button" onClick={() => updateOption(i, '')} style={{ color: '#ff2200' }} className="text-lg font-black leading-none hover:opacity-60 transition-opacity" title="クリア">✕</button>
+                    )}
                     {options.length > 2 && (
                       <button type="button" onClick={() => removeOption(i)} style={{ color: '#ff2200' }} className="text-xl font-black leading-none hover:opacity-60 transition-opacity">×</button>
                     )}
