@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { supabase, type QuickWord } from '@/lib/supabase'
 
-const QUICK_WORDS_KEY = 'quickWords'
-const DEFAULT_QUICK_WORDS = ['はい', 'いいえ', 'どちらでもない', '賛成', '反対', 'その他']
 const KEYBOARD_OFF_KEY = 'keyboardOff'
 
 // F デザイン カラーブロック用アクセントカラー
@@ -16,9 +15,10 @@ export default function CreateBunkatsu() {
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState(['', ''])
   const [loading, setLoading] = useState(false)
-  const [quickWords, setQuickWords] = useState<string[]>([])
+  const [quickWords, setQuickWords] = useState<QuickWord[]>([])
   const [newWord, setNewWord] = useState('')
   const [showAddWord, setShowAddWord] = useState(false)
+  const [deleteMode, setDeleteMode] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
   const [keyboardOff, setKeyboardOff] = useState(false)
 
@@ -27,9 +27,18 @@ export default function CreateBunkatsu() {
 
   useEffect(() => {
     if (localStorage.getItem('isAdmin') !== '1') { router.replace('/'); return }
-    const saved = localStorage.getItem(QUICK_WORDS_KEY)
-    setQuickWords(saved ? JSON.parse(saved) : DEFAULT_QUICK_WORDS)
     setKeyboardOff(localStorage.getItem(KEYBOARD_OFF_KEY) === '1')
+    supabase.from('quick_words').select('*').order('created_at').then(({ data }) => setQuickWords(data ?? []))
+
+    const channel = supabase.channel('quick-words')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quick_words' }, (payload) => {
+        setQuickWords((prev) => prev.some((w) => w.id === payload.new.id) ? prev : [...prev, payload.new as QuickWord])
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'quick_words' }, (payload) => {
+        setQuickWords((prev) => prev.filter((w) => w.id !== payload.old.id))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   const toggleKeyboardOff = () => {
@@ -37,10 +46,6 @@ export default function CreateBunkatsu() {
     setKeyboardOff(next)
     localStorage.setItem(KEYBOARD_OFF_KEY, next ? '1' : '0')
   }
-
-  useEffect(() => {
-    if (quickWords.length > 0) localStorage.setItem(QUICK_WORDS_KEY, JSON.stringify(quickWords))
-  }, [quickWords])
 
   const insertWord = (word: string) => {
     if (!focusedField) return
@@ -63,13 +68,26 @@ export default function CreateBunkatsu() {
     }
   }
 
-  const handleAddWord = () => {
+  const handleAddWord = async () => {
     const trimmed = newWord.trim()
-    if (!trimmed || quickWords.includes(trimmed)) return
-    setQuickWords([...quickWords, trimmed]); setNewWord(''); setShowAddWord(false)
+    if (!trimmed || quickWords.some((w) => w.word === trimmed)) return
+    setNewWord(''); setShowAddWord(false)
+    const res = await fetch('/api/admin/quick-words', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: trimmed }),
+    })
+    if (res.ok) {
+      const { word } = await res.json()
+      setQuickWords((prev) => prev.some((w) => w.id === word.id) ? prev : [...prev, word])
+    }
   }
 
-  const removeWord = (word: string) => setQuickWords(quickWords.filter((w) => w !== word))
+  const deleteWord = async (id: string) => {
+    setQuickWords((prev) => prev.filter((w) => w.id !== id))
+    await fetch(`/api/admin/quick-words/${id}`, { method: 'DELETE' })
+  }
+
   const addOption = () => setOptions([...options, ''])
   const updateOption = (index: number, value: string) => {
     const updated = [...options]; updated[index] = value; setOptions(updated)
@@ -120,6 +138,15 @@ export default function CreateBunkatsu() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setDeleteMode((v) => !v)}
+                  style={{ background: deleteMode ? '#ff2200' : '#ffffff', color: deleteMode ? '#ffffff' : '#000000', border: '1.5px solid #000000' }}
+                  className="text-xs font-black px-2 py-1 transition-opacity hover:opacity-80"
+                  title="ONの間はワードを押すと削除されます"
+                >
+                  🗑️ 削除モード: {deleteMode ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowAddWord((v) => !v)}
                   className="text-xs font-black transition-opacity hover:opacity-60"
                   style={{ color: '#0033cc' }}
@@ -155,35 +182,28 @@ export default function CreateBunkatsu() {
               <p className="text-sm text-black/50">ワードがありません。追加してください。</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {quickWords.map((word) => (
-                  <div key={word} className="flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => insertWord(word)}
-                      style={{
-                        border: `2px solid #000000`,
-                        borderRight: 'none',
-                        background: focusedField ? '#000000' : '#ffffff',
-                        color: focusedField ? '#ffe600' : '#000000',
-                      }}
-                      className="text-sm px-3 py-1 font-bold transition-all"
-                    >
-                      {word}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeWord(word)}
-                      style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }}
-                      className="text-xs px-1.5 py-1 font-black transition-opacity hover:opacity-60"
-                      title="削除"
-                    >
-                      ×
-                    </button>
-                  </div>
+                {quickWords.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => deleteMode ? deleteWord(w.id) : insertWord(w.word)}
+                    style={{
+                      border: `2px solid ${deleteMode ? '#ff2200' : '#000000'}`,
+                      background: deleteMode ? '#ffffff' : (focusedField ? '#000000' : '#ffffff'),
+                      color: deleteMode ? '#ff2200' : (focusedField ? '#ffe600' : '#000000'),
+                    }}
+                    className="text-sm px-3 py-1 font-bold transition-all"
+                  >
+                    {deleteMode ? '🗑️ ' : ''}{w.word}
+                  </button>
                 ))}
               </div>
             )}
-            {!focusedField && <p className="text-xs text-black/40 mt-2">入力欄をクリックしてからワードを押すと入力されます</p>}
+            {deleteMode ? (
+              <p className="text-xs font-bold mt-2" style={{ color: '#ff2200' }}>削除モード中: ワードを押すと削除されます</p>
+            ) : !focusedField && (
+              <p className="text-xs text-black/40 mt-2">入力欄をクリックしてからワードを押すと入力されます</p>
+            )}
           </div>
 
           {/* 作成フォーム */}

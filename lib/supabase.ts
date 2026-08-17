@@ -18,6 +18,12 @@ export type PollOption = {
   text: string
 }
 
+export type QuickWord = {
+  id: string
+  word: string
+  created_at: string
+}
+
 export type Vote = {
   id: string
   poll_id: string
