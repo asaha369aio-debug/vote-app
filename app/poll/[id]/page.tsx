@@ -37,6 +37,7 @@ export default function PollPage() {
   const [voted, setVoted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allVotes, setAllVotes] = useState<VoteRecord[]>([])
   const [phase, setPhase] = useState<'hidden' | 'ready' | 'suspense' | 'revealed'>('hidden')
@@ -114,7 +115,7 @@ export default function PollPage() {
       const { error: retryError } = await supabase.from('votes').insert({ poll_id: id, option_id: optionId })
       if (retryError) { alert('投票に失敗しました。もう一度お試しください。'); setSelectedId(null); setLoading(false); return }
     }
-    localStorage.setItem(storageKey, '1'); setVoted(true); setLoading(false)
+    localStorage.setItem(storageKey, '1'); setVoted(true); setLoading(false); setPendingId(null)
   }
 
   const handleReveal = () => {
@@ -329,32 +330,63 @@ export default function PollPage() {
         <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6">
           <h1 className="text-2xl font-black text-black mb-6">{poll.question}</h1>
 
-          {/* 選択肢と投票ボタン */}
-          <div className="space-y-3 mb-8">
+          {/* 選択肢（1段階目：選択） */}
+          <div className="space-y-3 mb-6">
             {options.map((opt, i) => {
               const color = BAR_COLORS[i % BAR_COLORS.length]
-              const isSelected = selectedId === opt.id
+              const isVotedSelection = selectedId === opt.id
+              const isPending = pendingId === opt.id
               return (
-                <div key={opt.id} className="flex items-center gap-3">
-                  <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
-                  <span className="text-black font-bold flex-1">{opt.text}</span>
-                  {!voted && (
+                <div key={opt.id}>
+                  {!voted ? (
                     <button
-                      onClick={() => handleVote(opt.id)}
+                      onClick={() => setPendingId(opt.id)}
                       disabled={loading}
-                      style={{ background: color, color: '#ffffff' }}
-                      className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-opacity hover:opacity-80 disabled:opacity-50"
+                      style={{ background: isPending ? color : '#ffffff', border: `2.5px solid ${color}` }}
                     >
-                      投票する
+                      <span className="w-4 h-4 flex-shrink-0" style={{ background: isPending ? '#ffffff' : color }} />
+                      <span className="font-bold flex-1" style={{ color: isPending ? '#ffffff' : '#000000' }}>{opt.text}</span>
+                      {isPending && <span className="text-lg font-black" style={{ color: '#ffffff' }}>✓</span>}
                     </button>
-                  )}
-                  {voted && isSelected && (
-                    <span className="text-sm font-black" style={{ color }}>✓ あなたの票</span>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
+                      <span className="text-black font-bold flex-1">{opt.text}</span>
+                      {isVotedSelection && <span className="text-sm font-black" style={{ color }}>✓ あなたの票</span>}
+                    </div>
                   )}
                 </div>
               )
             })}
           </div>
+
+          {/* 確認（2段階目） */}
+          {!voted && pendingId && (
+            <div className="mb-8 p-4 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
+              <p className="text-black font-bold mb-3">
+                「{options.find((o) => o.id === pendingId)?.text}」に投票します。よろしいですか？
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => handleVote(pendingId)}
+                  disabled={loading}
+                  style={{ background: '#000000', color: '#ffe600' }}
+                  className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                >
+                  {loading ? '投票中...' : 'この内容で投票する'}
+                </button>
+                <button
+                  onClick={() => setPendingId(null)}
+                  disabled={loading}
+                  style={{ background: '#ffe600', color: '#000000', border: '2px solid #000000' }}
+                  className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                >
+                  選び直す
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 投票完了メッセージ */}
           {voted && (
