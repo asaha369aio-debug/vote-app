@@ -320,7 +320,7 @@ export default function PollPage() {
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 一覧</Link>
+          <Link href="/vote" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 一覧</Link>
           <span className="text-black/40 font-bold">|</span>
           <span className="font-black text-black truncate">{poll.question}</span>
         </div>
