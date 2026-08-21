@@ -10,7 +10,7 @@ const notoSansJP = Noto_Sans_JP({ variable: "--font-noto", subsets: ["latin"], w
 const mplus = M_PLUS_1p({ variable: "--font-mplus", subsets: ["latin"], weight: ["700", "800"] });
 
 export const metadata: Metadata = {
-  title: "みんなで投票",
+  title: "大喜利投票アプリ_QOL",
   description: "リアルタイム投票アプリ",
 };
 
