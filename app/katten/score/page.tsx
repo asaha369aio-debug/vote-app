@@ -24,7 +24,7 @@ export default function KattenScorePage() {
   const roundRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (sessionStorage.getItem('siteAuth') !== '1') { router.replace('/'); return }
+    // siteAuthはタブごとのsessionStorageのため、別タブで開くこの画面では判定に使わない
     if (!localStorage.getItem('voterName')) { router.replace('/'); return }
 
     supabase.storage.from(PDF_BUCKET).list('').then(({ data }) => {
