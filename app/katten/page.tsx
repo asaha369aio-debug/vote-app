@@ -215,7 +215,17 @@ export default function KattenPage() {
         {/* 管理者: 対象選択 */}
         {isAdmin && (
           <div style={{ background: '#fff', border: '2.5px solid #000' }} className="p-5">
-            <p className="text-sm font-black mb-3">対象を選択</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-black">対象を選択</p>
+              <Link
+                href="/katten/score"
+                target="_blank"
+                className="text-xs font-black px-3 py-1.5 hover:opacity-80"
+                style={{ background: '#000', color: '#ffe600' }}
+              >
+                📺 点数表示画面を開く
+              </Link>
+            </div>
             <div className="flex flex-wrap gap-2">
               {/* 解除ボタン: 同じ人を連続選択するときのリセット用 */}
               <button
