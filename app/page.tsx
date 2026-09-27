@@ -30,6 +30,7 @@ const FEATURES = [
   { key: 'vote',    href: '/vote',    icon: '🗳️', label: '投票',   desc: 'リアルタイムで投票・集計',             accent: '#ff2200' },
   { key: 'katten',  href: '/katten',  icon: '📊', label: '加点',   desc: '対象を選んでリアルタイム加点',         accent: '#0033cc' },
   { key: 'enkaku',  href: '/enkaku',  icon: '📡', label: '遠隔加点', desc: '遠隔から対象を選んでリアルタイム加点', accent: '#00aa44' },
+  { key: 'bunkatsu_insho', href: '#', icon: '🧩', label: '分割印象投票', desc: '分割した印象で投票', accent: '#cc00ff' },
 ]
 
 // 管理者がオン/オフできる機能キー
