@@ -4,12 +4,13 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
+import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
 
 type VoteCount = { option_id: string; count: number }
-type VoteRecord = { option_id: string; voter_name: string | null }
+type VoteRecord = { poll_id: string; option_id: string; voter_name: string | null }
 
 // 1:1 → 2:1 → 3:1 → 2:1 のパターンで dominant オプションの幅を変化させる
 const RATIO_PATTERN = [1, 2, 3, 2]
@@ -34,16 +35,19 @@ function patternPercents(frame: number, count: number): number[] {
 
 export default function InshoPollPage() {
   const { id } = useParams<{ id: string }>()
-  const [poll, setPoll] = useState<Poll | null>(null)
-  const [options, setOptions] = useState<PollOption[]>([])
-  const [voteCounts, setVoteCounts] = useState<VoteCount[]>([])
+  // 一覧に出る項目（タイトル）と、その下の質問
+  const [item, setItem] = useState<Poll | null>(null)
+  const [questions, setQuestions] = useState<Poll[]>([])
+  const [optionsByQuestion, setOptionsByQuestion] = useState<Record<string, PollOption[]>>({})
   const [voted, setVoted] = useState(false)
   const [loading, setLoading] = useState(false)
-  // 選択肢ごとの配分票数（投票後は自分の配分として表示に使う）
-  const [allocation, setAllocation] = useState<Record<string, number>>({})
+  // 質問ごと・選択肢ごとの配分票数（投票後は自分の配分として表示に使う）
+  const [allocation, setAllocation] = useState<Record<string, Record<string, number>>>({})
   const [confirming, setConfirming] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allVotes, setAllVotes] = useState<VoteRecord[]>([])
+  // 管理者が投票者一覧・結果発表で見ている質問
+  const [selectedQ, setSelectedQ] = useState(0)
   const [phase, setPhase] = useState<'hidden' | 'ready' | 'suspense' | 'revealed'>('hidden')
   const [displayPercents, setDisplayPercents] = useState<number[]>([])
   const [showVoterList, setShowVoterList] = useState(false)
@@ -63,12 +67,21 @@ export default function InshoPollPage() {
   const graphFont = FONTS.find(f => f.key === fontKey)?.family ?? 'system-ui'
 
   const storageKey = `voted-${id}`
-  const totalVotes = voteCounts.reduce((sum, v) => sum + v.count, 0)
-  const allocated = Object.values(allocation).reduce((sum, n) => sum + n, 0)
-  const remaining = TOTAL_POINTS - allocated
+  const remainingOf = (questionId: string) =>
+    TOTAL_POINTS - Object.values(allocation[questionId] ?? {}).reduce((sum, n) => sum + n, 0)
+  const allAllocated = questions.length > 0 && questions.every((q) => remainingOf(q.id) === 0)
+
+  // ここから下は管理者が選択中の質問についての集計（結果発表・投票者一覧で使う）
+  const poll = questions[selectedQ] ?? null
+  const options = poll ? optionsByQuestion[poll.id] ?? [] : []
+  const pollVotes = poll ? allVotes.filter((v) => v.poll_id === poll.id) : []
+  const voteCounts: VoteCount[] = Object.entries(
+    pollVotes.reduce<Record<string, number>>((acc, v) => { acc[v.option_id] = (acc[v.option_id] ?? 0) + 1; return acc }, {})
+  ).map(([option_id, count]) => ({ option_id, count }))
+  const totalVotes = pollVotes.length
   // 1票=1行で保存しているため、投票者ごとに配分をまとめる
   const voterAllocations = Object.entries(
-    allVotes.reduce<Record<string, Record<string, number>>>((acc, v) => {
+    pollVotes.reduce<Record<string, Record<string, number>>>((acc, v) => {
       const name = v.voter_name ?? '名無し'
       acc[name] ??= {}
       acc[name][v.option_id] = (acc[name][v.option_id] ?? 0) + 1
@@ -86,47 +99,54 @@ export default function InshoPollPage() {
     return totalVotes > 0 ? (count / totalVotes) * 100 : 0
   })
 
-  const fetchVotes = async () => {
-    const { data, error } = await supabase.from('votes').select('option_id, voter_name').eq('poll_id', id)
-    const rows: { option_id: string; voter_name?: string | null }[] = (() => {
-      if (!error && data) return data
-      return []
-    })()
-    if (error) {
-      const { data: fallback } = await supabase.from('votes').select('option_id').eq('poll_id', id)
-      if (!fallback) return
-      const counts: Record<string, number> = {}
-      for (const v of fallback) counts[v.option_id] = (counts[v.option_id] ?? 0) + 1
-      setVoteCounts(Object.entries(counts).map(([option_id, count]) => ({ option_id, count })))
-      return
-    }
-    setAllVotes(rows as VoteRecord[])
-    const counts: Record<string, number> = {}
-    for (const v of rows) counts[v.option_id] = (counts[v.option_id] ?? 0) + 1
-    setVoteCounts(Object.entries(counts).map(([option_id, count]) => ({ option_id, count })))
+  const fetchVotes = async (questionIds: string[]) => {
+    const { data } = await supabase.from('votes').select('poll_id, option_id, voter_name').in('poll_id', questionIds)
+    if (data) setAllVotes(data as VoteRecord[])
   }
 
   useEffect(() => {
-    supabase.from('polls').select('*').eq('id', id).single().then(({ data }) => setPoll(data))
-    supabase.from('poll_options').select('*').eq('poll_id', id).then(({ data }) => setOptions(data ?? []))
-    fetchVotes()
     const saved = localStorage.getItem(storageKey)
     if (saved) {
       setVoted(true)
-      try { setAllocation(JSON.parse(saved)) } catch {}
+      try {
+        const parsed = JSON.parse(saved)
+        // 古い項目は { 選択肢ID: 票数 } 形式で保存していたので、項目自身の質問の配分として読む
+        const isLegacy = Object.values(parsed).some((v) => typeof v === 'number')
+        setAllocation(isLegacy ? { [id]: parsed } : parsed)
+      } catch {}
     }
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
-    // 1人の投票で複数行INSERTされるため、再取得はまとめて1回にする
+
     let refetchTimer: ReturnType<typeof setTimeout> | null = null
-    const channel = supabase.channel('votes-' + id)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=eq.${id}` }, () => {
-        if (refetchTimer) clearTimeout(refetchTimer)
-        refetchTimer = setTimeout(fetchVotes, 300)
-      })
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    const load = async () => {
+      const [{ data: itemData }, { data: questionData }] = await Promise.all([
+        supabase.from('polls').select('*').eq('id', id).single(),
+        supabase.from('polls').select('*').eq('category', inshoQuestionCategory(id)).order('created_at'),
+      ])
+      if (!itemData) return
+      const qs = questionsOrSelf(itemData, questionData ?? [])
+      const questionIds = qs.map((q) => q.id)
+      const { data: optionData } = await supabase.from('poll_options').select('*').in('poll_id', questionIds)
+      const grouped: Record<string, PollOption[]> = {}
+      for (const o of optionData ?? []) (grouped[o.poll_id] ??= []).push(o)
+      setOptionsByQuestion(grouped)
+      setQuestions(qs)
+      setItem(itemData)
+      fetchVotes(questionIds)
+
+      // 1人の投票で複数行INSERTされるため、再取得はまとめて1回にする
+      channel = supabase.channel('votes-' + id)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=in.(${questionIds.join(',')})` }, () => {
+          if (refetchTimer) clearTimeout(refetchTimer)
+          refetchTimer = setTimeout(() => fetchVotes(questionIds), 300)
+        })
+        .subscribe()
+    }
+    load()
     return () => {
       if (refetchTimer) clearTimeout(refetchTimer)
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [id])
 
@@ -134,22 +154,25 @@ export default function InshoPollPage() {
     return () => { if (intervalRef.current) clearTimeout(intervalRef.current) }
   }, [])
 
-  const changeAllocation = (optionId: string, delta: number) => {
+  const changeAllocation = (questionId: string, optionId: string, delta: number) => {
     setAllocation((prev) => {
-      const next = (prev[optionId] ?? 0) + delta
-      const used = Object.values(prev).reduce((sum, n) => sum + n, 0)
+      const current = prev[questionId] ?? {}
+      const next = (current[optionId] ?? 0) + delta
+      const used = Object.values(current).reduce((sum, n) => sum + n, 0)
       if (next < 0 || (delta > 0 && used >= TOTAL_POINTS)) return prev
-      return { ...prev, [optionId]: next }
+      return { ...prev, [questionId]: { ...current, [optionId]: next } }
     })
   }
 
   const handleVote = async () => {
-    if (remaining !== 0) return
+    if (!allAllocated) return
     setLoading(true)
     const voterName = localStorage.getItem('voterName') ?? '名無し'
-    // 1票=1行で保存する（既存の集計・結果発表がそのまま票数で動く）
-    const rows = Object.entries(allocation).flatMap(([option_id, n]) =>
-      Array.from({ length: n }, () => ({ poll_id: id, option_id, voter_name: voterName }))
+    // 1票=1行で保存する（既存の集計・結果発表がそのまま票数で動く）。全質問分をまとめて1回で保存
+    const rows = questions.flatMap((q) =>
+      Object.entries(allocation[q.id] ?? {}).flatMap(([option_id, n]) =>
+        Array.from({ length: n }, () => ({ poll_id: q.id, option_id, voter_name: voterName }))
+      )
     )
     const { error } = await supabase.from('votes').insert(rows)
     if (error) { alert('投票に失敗しました。もう一度お試しください。'); setLoading(false); return }
@@ -206,7 +229,7 @@ export default function InshoPollPage() {
     tick()
   }
 
-  if (!poll) {
+  if (!item || !poll) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#ffe600' }}>
         <p className="font-black text-black text-lg animate-pulse">読み込み中...</p>
@@ -353,66 +376,77 @@ export default function InshoPollPage() {
     )
   }
 
-  // ===== 通常の投票画面（持ち票の配分） =====
+  // ===== 通常の投票画面（質問ごとに持ち票を配分） =====
   return (
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/insho" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 一覧</Link>
           <span className="text-black/40 font-bold">|</span>
-          <span className="font-black text-black truncate">{poll.question}</span>
+          <span className="font-black text-black truncate">{item.question}</span>
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-6 py-8">
         <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6">
-          <h1 className="text-2xl font-black text-black mb-6">{poll.question}</h1>
-
-          {/* 残り票数 */}
+          <h1 className="text-2xl font-black text-black mb-2">{item.question}</h1>
           {!voted && (
-            <div className="mb-4 flex items-center justify-between px-4 py-2" style={{ background: remaining === 0 ? '#00aa44' : '#000000' }}>
-              <span className="text-sm font-black" style={{ color: remaining === 0 ? '#ffffff' : '#ffe600' }}>
-                持ち票 {TOTAL_POINTS} 票を配分してください
-              </span>
-              <span className="font-black text-lg" style={{ color: remaining === 0 ? '#ffffff' : '#ffe600' }}>
-                残り {remaining} 票
-              </span>
-            </div>
+            <p className="text-sm font-bold text-black/60 mb-6">質問ごとに持ち票 {TOTAL_POINTS} 票を配分してください</p>
           )}
 
-          {/* 選択肢（1段階目：配分） */}
-          <div className="space-y-3 mb-6">
-            {options.map((opt, i) => {
-              const color = BAR_COLORS[i % BAR_COLORS.length]
-              const n = allocation[opt.id] ?? 0
+          {/* 質問ごとの配分（1段階目） */}
+          <div className="space-y-6 mb-6">
+            {questions.map((q, qi) => {
+              const remaining = remainingOf(q.id)
               return (
-                <div key={opt.id} className="flex items-center gap-3 px-4 py-3" style={{ border: `2.5px solid ${color}`, background: n > 0 ? `${color}1a` : '#ffffff' }}>
-                  <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
-                  <span className="text-black font-bold flex-1">{opt.text}</span>
-                  {!voted && !confirming ? (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => changeAllocation(opt.id, -1)}
-                        disabled={n === 0}
-                        className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
-                        style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
-                      >
-                        −
-                      </button>
-                      <span className="w-8 text-center font-black text-xl" style={{ color }}>{n}</span>
-                      <button
-                        onClick={() => changeAllocation(opt.id, 1)}
-                        disabled={remaining === 0}
-                        className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
-                        style={{ background: color, color: '#ffffff', border: '2px solid #000000' }}
-                      >
-                        ＋
-                      </button>
+                <section key={q.id}>
+                  <h2 className="font-black text-black mb-2">
+                    {questions.length > 1 && <span className="mr-2" style={{ color: '#ff2200' }}>質問{qi + 1}</span>}
+                    {q.question}
+                  </h2>
+                  {!voted && (
+                    <div className="mb-3 flex items-center justify-end px-4 py-1.5" style={{ background: remaining === 0 ? '#00aa44' : '#000000' }}>
+                      <span className="font-black" style={{ color: remaining === 0 ? '#ffffff' : '#ffe600' }}>
+                        {remaining === 0 ? '✓ 配分完了' : `残り ${remaining} 票`}
+                      </span>
                     </div>
-                  ) : (
-                    <span className="text-sm font-black flex-shrink-0" style={{ color }}>{n} 票</span>
                   )}
-                </div>
+                  <div className="space-y-2">
+                    {(optionsByQuestion[q.id] ?? []).map((opt, i) => {
+                      const color = BAR_COLORS[i % BAR_COLORS.length]
+                      const n = allocation[q.id]?.[opt.id] ?? 0
+                      return (
+                        <div key={opt.id} className="flex items-center gap-3 px-4 py-3" style={{ border: `2.5px solid ${color}`, background: n > 0 ? `${color}1a` : '#ffffff' }}>
+                          <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
+                          <span className="text-black font-bold flex-1">{opt.text}</span>
+                          {!voted && !confirming ? (
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => changeAllocation(q.id, opt.id, -1)}
+                                disabled={n === 0}
+                                className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                                style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
+                              >
+                                −
+                              </button>
+                              <span className="w-8 text-center font-black text-xl" style={{ color }}>{n}</span>
+                              <button
+                                onClick={() => changeAllocation(q.id, opt.id, 1)}
+                                disabled={remaining === 0}
+                                className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                                style={{ background: color, color: '#ffffff', border: '2px solid #000000' }}
+                              >
+                                ＋
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-sm font-black flex-shrink-0" style={{ color }}>{n} 票</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
               )
             })}
           </div>
@@ -422,11 +456,11 @@ export default function InshoPollPage() {
             <div className="mb-8 text-center">
               <button
                 onClick={() => setConfirming(true)}
-                disabled={remaining !== 0}
+                disabled={!allAllocated}
                 style={{ background: '#000000', color: '#ffe600' }}
                 className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-30"
               >
-                {remaining === 0 ? 'この配分で進む' : `あと ${remaining} 票配分してください`}
+                {allAllocated ? 'この配分で進む' : 'すべての質問で配分してください'}
               </button>
             </div>
           )}
@@ -466,9 +500,27 @@ export default function InshoPollPage() {
             </div>
           )}
 
-          {/* 管理者向け投票者一覧・結果ボタン */}
+          {/* 管理者向け投票者一覧・結果ボタン（選択中の質問について表示） */}
           {isAdmin && (
             <div className="mt-6 pt-6" style={{ borderTop: '2px solid #000000' }}>
+              {questions.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {questions.map((q, qi) => (
+                    <button
+                      key={q.id}
+                      onClick={() => setSelectedQ(qi)}
+                      style={{
+                        background: selectedQ === qi ? '#000000' : '#ffffff',
+                        color: selectedQ === qi ? '#ffe600' : '#000000',
+                        border: '2px solid #000000',
+                      }}
+                      className="text-xs font-black px-3 py-1.5 transition-opacity hover:opacity-80"
+                    >
+                      質問{qi + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-black text-black">
                   📋 投票者一覧
@@ -513,7 +565,7 @@ export default function InshoPollPage() {
               <div className="mt-4 text-center">
                 <p className="text-sm text-black/50 mb-3">合計 <span className="font-black text-black">{totalVotes}</span> 票</p>
                 <button onClick={handleReveal} style={{ background: '#000000', color: '#ffe600' }} className="font-black px-6 py-2 transition-opacity hover:opacity-80">
-                  📊 結果を見る
+                  📊 {questions.length > 1 ? `質問${selectedQ + 1}の結果を見る` : '結果を見る'}
                 </button>
               </div>
             </div>

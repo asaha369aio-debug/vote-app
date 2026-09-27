@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { INSHO_CATEGORY, inshoQuestionCategory } from '@/lib/insho'
+import { deletePolls } from '@/lib/pollUpdate'
 
-// 分割印象投票は管理者以外も作成できる（category は insho 固定）
-// 質問と選択肢の組を複数受け取り、まとめて作成する
+// 分割印象投票は管理者以外も作成できる。
+// タイトル（一覧に出る項目）と、質問・選択肢の組を複数受け取り、1つの項目としてまとめて作成する
+const MAX_TITLE_LENGTH = 200
 const MAX_QUESTION_LENGTH = 200
 const MAX_POLLS = 10
 const MAX_OPTION_LENGTH = 100
@@ -24,20 +27,30 @@ function parsePolls(value: unknown): PollInput[] | null {
 }
 
 export async function POST(req: NextRequest) {
-  const { polls: input } = await req.json()
+  const { title, polls: input } = await req.json()
+  const trimmedTitle = typeof title === 'string' ? title.trim() : ''
   const polls = parsePolls(input)
-  if (!polls) return NextResponse.json({ error: 'invalid request' }, { status: 400 })
-
-  // 一覧は新しい順に表示されるため、最後の質問から作成して質問1が一番上に来るようにする
-  const created = []
-  for (const { question, options } of [...polls].reverse()) {
-    const { data: poll, error } = await supabaseAdmin.from('polls').insert({ question, category: 'insho' }).select().single()
-    if (error || !poll) return NextResponse.json({ error: error?.message ?? 'failed to create poll' }, { status: 500 })
-
-    const { error: optError } = await supabaseAdmin.from('poll_options').insert(options.map((text) => ({ poll_id: poll.id, text })))
-    if (optError) return NextResponse.json({ error: optError.message }, { status: 500 })
-    created.push(poll)
+  if (!trimmedTitle || trimmedTitle.length > MAX_TITLE_LENGTH || !polls) {
+    return NextResponse.json({ error: 'invalid request' }, { status: 400 })
   }
 
-  return NextResponse.json({ polls: created.reverse() })
+  const { data: item, error } = await supabaseAdmin.from('polls').insert({ question: trimmedTitle, category: INSHO_CATEGORY }).select().single()
+  if (error || !item) return NextResponse.json({ error: error?.message ?? 'failed to create item' }, { status: 500 })
+
+  // 質問は作成順（created_at 昇順）で並べるため、1つずつ順番に作成する
+  const createdIds: string[] = []
+  for (const { question, options } of polls) {
+    const { data: poll, error: pollError } = await supabaseAdmin.from('polls').insert({ question, category: inshoQuestionCategory(item.id) }).select().single()
+    const optError = poll
+      ? (await supabaseAdmin.from('poll_options').insert(options.map((text) => ({ poll_id: poll.id, text })))).error
+      : null
+    if (poll) createdIds.push(poll.id)
+    if (pollError || !poll || optError) {
+      // 途中で失敗したら作りかけの項目を残さない
+      await deletePolls([...createdIds, item.id])
+      return NextResponse.json({ error: (pollError ?? optError)?.message ?? 'failed to create question' }, { status: 500 })
+    }
+  }
+
+  return NextResponse.json({ poll: item })
 }

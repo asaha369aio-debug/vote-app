@@ -4,20 +4,23 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type QuickWord } from '@/lib/supabase'
+import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 
 const KEYBOARD_OFF_KEY = 'keyboardOff'
 
+// F デザイン カラーブロック用アクセントカラー
 const ACCENTS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600']
 
 type OptionItem = { id: string | null; text: string }
+type QuestionItem = { id: string; question: string; options: OptionItem[]; removedOptionIds: string[] }
 
 export default function EditInsho() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-
-  const [question, setQuestion] = useState('')
-  const [options, setOptions] = useState<OptionItem[]>([])
-  const [removedOptionIds, setRemovedOptionIds] = useState<string[]>([])
+  const [title, setTitle] = useState('')
+  // 質問を持たない古い項目は、項目自身が質問なのでタイトル欄を出さない
+  const [isLegacy, setIsLegacy] = useState(false)
+  const [questions, setQuestions] = useState<QuestionItem[]>([])
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [quickWords, setQuickWords] = useState<QuickWord[]>([])
@@ -27,21 +30,31 @@ export default function EditInsho() {
   const [focusedField, setFocusedField] = useState<string | null>(null)
   const [keyboardOff, setKeyboardOff] = useState(false)
 
-  const questionRef = useRef<HTMLInputElement>(null)
-  const optionRefs = useRef<(HTMLInputElement | null)[]>([])
+  const titleRef = useRef<HTMLInputElement>(null)
+  const questionRefs = useRef<(HTMLInputElement | null)[]>([])
+  const optionRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     if (localStorage.getItem('isAdmin') !== '1') { router.replace('/'); return }
     setKeyboardOff(localStorage.getItem(KEYBOARD_OFF_KEY) === '1')
     supabase.from('quick_words').select('*').order('created_at').then(({ data }) => setQuickWords(data ?? []))
+
     const load = async () => {
-      const [{ data: poll }, { data: opts }] = await Promise.all([
+      const [{ data: item }, { data: questionData }] = await Promise.all([
         supabase.from('polls').select('*').eq('id', id).single(),
-        supabase.from('poll_options').select('*').eq('poll_id', id),
+        supabase.from('polls').select('*').eq('category', inshoQuestionCategory(id)).order('created_at'),
       ])
-      if (!poll) { router.replace('/'); return }
-      setQuestion(poll.question)
-      setOptions((opts ?? []).map((o) => ({ id: o.id, text: o.text })))
+      if (!item) { router.replace('/insho'); return }
+      const qs = questionsOrSelf(item, questionData ?? [])
+      const { data: opts } = await supabase.from('poll_options').select('*').in('poll_id', qs.map((q) => q.id))
+      setTitle(item.question)
+      setIsLegacy((questionData ?? []).length === 0)
+      setQuestions(qs.map((q) => ({
+        id: q.id,
+        question: q.question,
+        options: (opts ?? []).filter((o) => o.poll_id === q.id).map((o) => ({ id: o.id, text: o.text })),
+        removedOptionIds: [],
+      })))
       setInitialLoading(false)
     }
     load()
@@ -57,24 +70,41 @@ export default function EditInsho() {
     return () => { supabase.removeChannel(channel) }
   }, [id])
 
+  const updateQuestionItem = (qi: number, update: (q: QuestionItem) => QuestionItem) =>
+    setQuestions((prev) => prev.map((q, i) => (i === qi ? update(q) : q)))
+  const updateQuestion = (qi: number, question: string) => updateQuestionItem(qi, (q) => ({ ...q, question }))
+  const updateOption = (qi: number, index: number, text: string) =>
+    updateQuestionItem(qi, (q) => ({ ...q, options: q.options.map((o, i) => (i === index ? { ...o, text } : o)) }))
+  const removeOption = (qi: number, index: number) =>
+    updateQuestionItem(qi, (q) => {
+      const target = q.options[index]
+      return {
+        ...q,
+        options: q.options.filter((_, i) => i !== index),
+        removedOptionIds: target.id ? [...q.removedOptionIds, target.id] : q.removedOptionIds,
+      }
+    })
+  const addOption = (qi: number) => updateQuestionItem(qi, (q) => ({ ...q, options: [...q.options, { id: null, text: '' }] }))
+
   const insertWord = (word: string) => {
     if (!focusedField) return
-    if (focusedField === 'question') {
-      const el = questionRef.current; if (!el) return
-      const start = el.selectionStart ?? question.length
-      const end = el.selectionEnd ?? question.length
-      const next = question.slice(0, start) + word + question.slice(end)
-      setQuestion(next)
-      setTimeout(() => el.setSelectionRange(start + word.length, start + word.length), 0)
-    } else if (focusedField.startsWith('option-')) {
-      const index = parseInt(focusedField.replace('option-', ''), 10)
-      const el = optionRefs.current[index]; if (!el) return
-      const current = options[index].text
+    const insertInto = (el: HTMLInputElement, current: string, apply: (next: string) => void) => {
       const start = el.selectionStart ?? current.length
       const end = el.selectionEnd ?? current.length
-      const next = current.slice(0, start) + word + current.slice(end)
-      updateOption(index, next)
+      apply(current.slice(0, start) + word + current.slice(end))
       setTimeout(() => el.setSelectionRange(start + word.length, start + word.length), 0)
+    }
+    if (focusedField === 'title') {
+      const el = titleRef.current; if (!el) return
+      insertInto(el, title, setTitle)
+    } else if (focusedField.startsWith('question-')) {
+      const qi = parseInt(focusedField.replace('question-', ''), 10)
+      const el = questionRefs.current[qi]; if (!el) return
+      insertInto(el, questions[qi].question, (next) => updateQuestion(qi, next))
+    } else if (focusedField.startsWith('option-')) {
+      const [qi, index] = focusedField.replace('option-', '').split('-').map(Number)
+      const el = optionRefs.current[`${qi}-${index}`]; if (!el) return
+      insertInto(el, questions[qi].options[index].text, (next) => updateOption(qi, index, next))
     }
   }
 
@@ -97,10 +127,10 @@ export default function EditInsho() {
     }
   }
 
-  const deleteWord = async (id: string) => {
-    const res = await fetch(`/api/admin/quick-words/${id}`, { method: 'DELETE' })
+  const deleteWord = async (wordId: string) => {
+    const res = await fetch(`/api/admin/quick-words/${wordId}`, { method: 'DELETE' })
     if (res.ok) {
-      setQuickWords((prev) => prev.filter((w) => w.id !== id))
+      setQuickWords((prev) => prev.filter((w) => w.id !== wordId))
     } else if (res.status === 401) {
       alert('管理者セッションが切れています。管理者ログインをやり直してください。')
     } else {
@@ -113,25 +143,24 @@ export default function EditInsho() {
     setKeyboardOff(next)
     localStorage.setItem(KEYBOARD_OFF_KEY, next ? '1' : '0')
   }
-  const updateOption = (index: number, text: string) => setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, text } : o)))
-  const removeOption = (index: number) => {
-    const target = options[index]
-    if (target.id) setRemovedOptionIds((prev) => [...prev, target.id!])
-    setOptions((prev) => prev.filter((_, i) => i !== index))
-  }
-  const addOption = () => setOptions((prev) => [...prev, { id: null, text: '' }])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validOptions = options.filter((o) => o.text.trim() !== '')
-    if (!question.trim() || validOptions.length < 2) return
+    if (!isLegacy && !title.trim()) { alert('タイトルを入力してください'); return }
+    const payload = questions.map((q) => ({ ...q, question: q.question.trim(), options: q.options.filter((o) => o.text.trim() !== '') }))
+    const invalid = payload.findIndex((q) => !q.question || q.options.length < 2)
+    if (invalid >= 0) { alert(`質問${invalid + 1}の質問文と、選択肢を2つ以上入力してください`); return }
     setLoading(true)
-    const res = await fetch(`/api/admin/polls/${id}`, {
+    const res = await fetch(`/api/admin/insho/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question.trim(), options: validOptions, removedOptionIds }),
+      body: JSON.stringify({ title: isLegacy ? undefined : title.trim(), questions: payload }),
     })
-    if (!res.ok) { setLoading(false); return }
+    if (!res.ok) {
+      alert(res.status === 401 ? '管理者セッションが切れています。管理者ログインをやり直してください。' : '保存に失敗しました。')
+      setLoading(false)
+      return
+    }
     router.push('/insho')
   }
 
@@ -142,6 +171,8 @@ export default function EditInsho() {
       </div>
     )
   }
+
+  const hasRemovedOptions = questions.some((q) => q.removedOptionIds.length > 0)
 
   return (
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
@@ -230,60 +261,87 @@ export default function EditInsho() {
 
           {/* 編集フォーム */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-black text-black mb-2">📝 質問</label>
-              <div className="flex gap-2">
-                <input
-                  ref={questionRef}
-                  type="text"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  onFocus={() => setFocusedField('question')}
-                  placeholder="例: 好きなプログラミング言語は？"
-                  style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
-                  className="flex-1 px-4 py-3 focus:outline-none"
-                  readOnly={keyboardOff}
-                  inputMode={keyboardOff ? 'none' : 'text'}
-                  required
-                />
-                {keyboardOff && question && (
-                  <button type="button" onClick={() => setQuestion('')} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="px-3 font-black hover:opacity-60 transition-opacity" title="クリア">✕</button>
-                )}
+            {!isLegacy && (
+              <div>
+                <label className="block text-sm font-black text-black mb-2">🏷️ タイトル（一覧に表示されます）</label>
+                <div className="flex gap-2">
+                  <input
+                    ref={titleRef}
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onFocus={() => setFocusedField('title')}
+                    style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
+                    className="flex-1 px-4 py-3 focus:outline-none"
+                    readOnly={keyboardOff}
+                    inputMode={keyboardOff ? 'none' : 'text'}
+                    required
+                  />
+                  {keyboardOff && title && (
+                    <button type="button" onClick={() => setTitle('')} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="px-3 font-black hover:opacity-60 transition-opacity" title="クリア">✕</button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-black text-black mb-2">🎯 選択肢</label>
-              {removedOptionIds.length > 0 && (
-                <p className="text-xs font-bold mb-2" style={{ color: '#ff6600' }}>⚠️ 削除した選択肢の投票記録も保存時に削除されます</p>
-              )}
-              <div className="space-y-3">
-                {options.map((opt, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <span className="w-5 h-5 flex-shrink-0" style={{ background: ACCENTS[i % 4] }} />
+            {hasRemovedOptions && (
+              <p className="text-xs font-bold" style={{ color: '#ff6600' }}>⚠️ 削除した選択肢の投票記録も保存時に削除されます</p>
+            )}
+
+            {questions.map((q, qi) => (
+              <div key={q.id} className="p-4 space-y-4" style={{ background: '#ffffff', border: '2px solid #000000' }}>
+                <div>
+                  <label className="block text-sm font-black text-black mb-2">📝 質問{questions.length > 1 ? qi + 1 : ''}</label>
+                  <div className="flex gap-2">
                     <input
-                      ref={(el) => { optionRefs.current[i] = el }}
+                      ref={(el) => { questionRefs.current[qi] = el }}
                       type="text"
-                      value={opt.text}
-                      onChange={(e) => updateOption(i, e.target.value)}
-                      onFocus={() => setFocusedField(`option-${i}`)}
-                      placeholder={`選択肢 ${i + 1}`}
-                      style={{ border: `2px solid ${ACCENTS[i % 4]}`, background: '#ffffff', color: '#000000' }}
-                      className="flex-1 px-4 py-2 focus:outline-none"
+                      value={q.question}
+                      onChange={(e) => updateQuestion(qi, e.target.value)}
+                      onFocus={() => setFocusedField(`question-${qi}`)}
+                      style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
+                      className="flex-1 px-4 py-3 focus:outline-none"
                       readOnly={keyboardOff}
                       inputMode={keyboardOff ? 'none' : 'text'}
+                      required
                     />
-                    {keyboardOff && opt.text && (
-                      <button type="button" onClick={() => updateOption(i, '')} style={{ color: '#ff2200' }} className="text-lg font-black leading-none hover:opacity-60 transition-opacity" title="クリア">✕</button>
-                    )}
-                    {options.length > 2 && (
-                      <button type="button" onClick={() => removeOption(i)} style={{ color: '#ff2200' }} className="text-xl font-black leading-none hover:opacity-60 transition-opacity">×</button>
+                    {keyboardOff && q.question && (
+                      <button type="button" onClick={() => updateQuestion(qi, '')} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="px-3 font-black hover:opacity-60 transition-opacity" title="クリア">✕</button>
                     )}
                   </div>
-                ))}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-black text-black mb-2">🎯 選択肢</label>
+                  <div className="space-y-3">
+                    {q.options.map((opt, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <span className="w-5 h-5 flex-shrink-0" style={{ background: ACCENTS[i % 4] }} />
+                        <input
+                          ref={(el) => { optionRefs.current[`${qi}-${i}`] = el }}
+                          type="text"
+                          value={opt.text}
+                          onChange={(e) => updateOption(qi, i, e.target.value)}
+                          onFocus={() => setFocusedField(`option-${qi}-${i}`)}
+                          placeholder={`選択肢 ${i + 1}`}
+                          style={{ border: `2px solid ${ACCENTS[i % 4]}`, background: '#ffffff', color: '#000000' }}
+                          className="flex-1 px-4 py-2 focus:outline-none"
+                          readOnly={keyboardOff}
+                          inputMode={keyboardOff ? 'none' : 'text'}
+                        />
+                        {keyboardOff && opt.text && (
+                          <button type="button" onClick={() => updateOption(qi, i, '')} style={{ color: '#ff2200' }} className="text-lg font-black leading-none hover:opacity-60 transition-opacity" title="クリア">✕</button>
+                        )}
+                        {q.options.length > 2 && (
+                          <button type="button" onClick={() => removeOption(qi, i)} style={{ color: '#ff2200' }} className="text-xl font-black leading-none hover:opacity-60 transition-opacity">×</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" onClick={() => addOption(qi)} style={{ color: '#0033cc' }} className="mt-3 text-sm font-black hover:opacity-60 transition-opacity">＋ 選択肢を追加</button>
+                </div>
               </div>
-              <button type="button" onClick={addOption} style={{ color: '#0033cc' }} className="mt-3 text-sm font-black hover:opacity-60 transition-opacity">＋ 選択肢を追加</button>
-            </div>
+            ))}
 
             <button type="submit" disabled={loading} style={{ background: '#000000', color: '#ffe600' }} className="w-full font-black py-3 hover:opacity-80 transition-opacity disabled:opacity-50 text-lg">
               {loading ? '保存中...' : '💾 変更を保存する'}

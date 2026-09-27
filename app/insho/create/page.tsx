@@ -19,6 +19,7 @@ const DEFAULT_QUESTIONS = [
 
 export default function CreateInsho() {
   const router = useRouter()
+  const [title, setTitle] = useState('')
   const [questions, setQuestions] = useState(DEFAULT_QUESTIONS)
   // 質問ごとの選択肢。linked が true の質問は質問1の選択肢をそのまま使う
   const [optionsList, setOptionsList] = useState<string[][]>(() => DEFAULT_QUESTIONS.map(() => ['', '']))
@@ -32,6 +33,7 @@ export default function CreateInsho() {
   const [keyboardOff, setKeyboardOff] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
+  const titleRef = useRef<HTMLInputElement>(null)
   const questionRefs = useRef<(HTMLInputElement | null)[]>([])
   const optionRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -60,7 +62,13 @@ export default function CreateInsho() {
 
   const insertWord = (word: string) => {
     if (!focusedField) return
-    if (focusedField.startsWith('question-')) {
+    if (focusedField === 'title') {
+      const el = titleRef.current; if (!el) return
+      const start = el.selectionStart ?? title.length
+      const end = el.selectionEnd ?? title.length
+      setTitle(title.slice(0, start) + word + title.slice(end))
+      setTimeout(() => el.setSelectionRange(start + word.length, start + word.length), 0)
+    } else if (focusedField.startsWith('question-')) {
       const index = parseInt(focusedField.replace('question-', ''), 10)
       const el = questionRefs.current[index]; if (!el) return
       const current = questions[index]
@@ -132,13 +140,14 @@ export default function CreateInsho() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const polls = questions.map((q, i) => ({ question: q.trim(), options: optionsOf(i).map((o) => o.trim()).filter(Boolean) }))
+    if (!title.trim()) { alert('タイトルを入力してください'); return }
     const invalid = polls.findIndex((p) => !p.question || p.options.length < 2)
     if (invalid >= 0) { alert(`質問${invalid + 1}の質問文と、選択肢を2つ以上入力してください`); return }
     setLoading(true)
     const res = await fetch('/api/insho/polls', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ polls }),
+      body: JSON.stringify({ title: title.trim(), polls }),
     })
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: '' }))
@@ -259,6 +268,28 @@ export default function CreateInsho() {
 
           {/* 投票作成フォーム */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-black text-black mb-2">🏷️ タイトル（一覧に表示されます）</label>
+              <div className="flex gap-2">
+                <input
+                  ref={titleRef}
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onFocus={() => setFocusedField('title')}
+                  placeholder="例: 第1回 大喜利"
+                  style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
+                  className="flex-1 px-4 py-3 focus:outline-none"
+                  readOnly={keyboardOff}
+                  inputMode={keyboardOff ? 'none' : 'text'}
+                  required
+                />
+                {keyboardOff && title && (
+                  <button type="button" onClick={() => setTitle('')} style={{ border: '2px solid #000000', background: '#ffffff', color: '#ff2200' }} className="px-3 font-black hover:opacity-60 transition-opacity" title="クリア">✕</button>
+                )}
+              </div>
+            </div>
+
             {questions.map((q, qi) => (
               <div key={qi} className="p-4 space-y-4" style={{ background: '#ffffff', border: '2px solid #000000' }}>
                 <div>
