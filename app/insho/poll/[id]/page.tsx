@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
+import VoteCountEditor from '@/components/VoteCountEditor'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -600,6 +601,16 @@ export default function InshoPollPage() {
                   <button onClick={handleExportCsv} style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }} className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80">
                     📥 結果をCSVで出力{questions.length > 1 ? '（全質問）' : ''}
                   </button>
+                </div>
+                <div className="mt-3">
+                  <VoteCountEditor
+                    key={poll.id}
+                    pollId={poll.id}
+                    options={options}
+                    counts={Object.fromEntries(voteCounts.map((v) => [v.option_id, v.count]))}
+                    colors={BAR_COLORS}
+                    onSaved={() => fetchVotes(questions.map((q) => q.id))}
+                  />
                 </div>
               </div>
             </div>

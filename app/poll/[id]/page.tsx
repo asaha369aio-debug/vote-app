@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
+import VoteCountEditor from '@/components/VoteCountEditor'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -443,6 +444,15 @@ export default function PollPage() {
                 <button onClick={handleReveal} style={{ background: '#000000', color: '#ffe600' }} className="font-black px-6 py-2 transition-opacity hover:opacity-80">
                   📊 結果を見る
                 </button>
+                <div className="mt-3">
+                  <VoteCountEditor
+                    pollId={id}
+                    options={options}
+                    counts={Object.fromEntries(voteCounts.map((v) => [v.option_id, v.count]))}
+                    colors={BAR_COLORS}
+                    onSaved={fetchVotes}
+                  />
+                </div>
               </div>
             </div>
           )}
