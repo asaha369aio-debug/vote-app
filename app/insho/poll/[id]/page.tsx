@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
+import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -100,8 +101,7 @@ export default function InshoPollPage() {
   })
 
   const fetchVotes = async (questionIds: string[]) => {
-    const { data } = await supabase.from('votes').select('poll_id, option_id, voter_name').in('poll_id', questionIds)
-    if (data) setAllVotes(data as VoteRecord[])
+    try { setAllVotes(await fetchAllVotes(questionIds)) } catch {}
   }
 
   useEffect(() => {
@@ -177,6 +177,35 @@ export default function InshoPollPage() {
     const { error } = await supabase.from('votes').insert(rows)
     if (error) { alert('投票に失敗しました。もう一度お試しください。'); setLoading(false); return }
     localStorage.setItem(storageKey, JSON.stringify(allocation)); setVoted(true); setLoading(false); setConfirming(false)
+  }
+
+  // 全質問の結果をCSVで出力する（列: 質問ごと×選択肢、行: 投票者ごと＋合計）
+  const handleExportCsv = () => {
+    if (!item) return
+    const columns = questions.flatMap((q, qi) =>
+      (optionsByQuestion[q.id] ?? []).map((opt) => ({
+        questionId: q.id,
+        optionId: opt.id,
+        label: questions.length > 1 ? `質問${qi + 1} ${q.question}: ${opt.text}` : `${q.question}: ${opt.text}`,
+      }))
+    )
+    const byVoter: Record<string, Record<string, number>> = {}
+    for (const v of allVotes) {
+      const name = v.voter_name ?? '名無し'
+      byVoter[name] ??= {}
+      byVoter[name][v.option_id] = (byVoter[name][v.option_id] ?? 0) + 1
+    }
+    const totals = columns.map((c) => allVotes.filter((v) => v.option_id === c.optionId).length)
+    const escape = (value: string | number) => {
+      const text = String(value)
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    }
+    const rows = [
+      ['投票者', ...columns.map((c) => c.label)],
+      ...Object.entries(byVoter).map(([name, counts]) => [name, ...columns.map((c) => counts[c.optionId] ?? 0)]),
+      ['合計', ...totals],
+    ]
+    downloadCsv(`${item.question}_結果.csv`, rows.map((row) => row.map(escape).join(',')).join('\r\n'))
   }
 
   const handleReveal = () => {
@@ -567,6 +596,11 @@ export default function InshoPollPage() {
                 <button onClick={handleReveal} style={{ background: '#000000', color: '#ffe600' }} className="font-black px-6 py-2 transition-opacity hover:opacity-80">
                   📊 {questions.length > 1 ? `質問${selectedQ + 1}の結果を見る` : '結果を見る'}
                 </button>
+                <div className="mt-3">
+                  <button onClick={handleExportCsv} style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }} className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80">
+                    📥 結果をCSVで出力{questions.length > 1 ? '（全質問）' : ''}
+                  </button>
+                </div>
               </div>
             </div>
           )}

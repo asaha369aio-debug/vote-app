@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase, type Poll } from '@/lib/supabase'
+import { buildResultsCsv, downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
 
 const VOTER_NAME_KEY = 'voterName'
 const SITE_AUTH_KEY = 'siteAuth'
@@ -43,6 +44,25 @@ export default function VotePage() {
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [exporting, setExporting] = useState(false)
+
+  // 全項目の結果を1つのCSVにまとめて出力する
+  const handleExportAll = async () => {
+    setExporting(true)
+    try {
+      const items = polls.map((poll) => ({ title: poll.question, questions: [poll] }))
+      const ids = polls.map((p) => p.id)
+      const [{ data: options }, votes] = await Promise.all([
+        supabase.from('poll_options').select('*').in('poll_id', ids),
+        fetchAllVotes(ids),
+      ])
+      downloadCsv(`最終投票_全結果_${new Date().toLocaleDateString('ja-JP').replace(/\//g, '-')}.csv`, buildResultsCsv(items, options ?? [], votes))
+    } catch {
+      alert('出力に失敗しました。もう一度お試しください。')
+    }
+    setExporting(false)
+  }
 
   const fetchPolls = async () => {
     setReloading(true)
@@ -119,6 +139,18 @@ export default function VotePage() {
 
       {/* 投票リスト */}
       <main className="max-w-2xl mx-auto px-6 py-8">
+        {isAdmin && polls.length > 0 && (
+          <div className="mb-4 text-right">
+            <button
+              onClick={handleExportAll}
+              disabled={exporting}
+              className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
+            >
+              {exporting ? '出力中...' : '📥 全結果をCSVで出力'}
+            </button>
+          </div>
+        )}
         {polls.length === 0 ? (
           <div className="text-center py-20" style={{ color: th.mutedColor }}>
             <p className="text-5xl mb-4">📭</p>
