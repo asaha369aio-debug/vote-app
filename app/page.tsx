@@ -34,7 +34,7 @@ const FEATURES = [
 ]
 
 // 管理者がオン/オフできる機能キー
-const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku']
+const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'bunkatsu_insho']
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -71,26 +71,32 @@ export default function Home() {
 
     // リアルタイムでフラグ変更を反映（確定操作をした全ユーザーの画面に反映される）
     const ch = supabase.channel('feature-flags')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'feature_flags' }, (payload) => {
-        setFlags((prev) => ({ ...prev, [payload.new.key]: payload.new.enabled }))
-        setPendingFlags((prev) => ({ ...prev, [payload.new.key]: payload.new.enabled }))
+      // 新しく追加した機能は初回保存時にINSERTされるため、INSERTも受け取る
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_flags' }, (payload) => {
+        const { key, enabled } = payload.new as { key?: string; enabled?: boolean }
+        if (!key) return
+        setFlags((prev) => ({ ...prev, [key]: enabled !== false }))
+        setPendingFlags((prev) => ({ ...prev, [key]: enabled !== false }))
       }).subscribe()
 
     return () => { supabase.removeChannel(ch) }
   }, [])
 
+  // DBに行がない（undefined）の機能は表示扱い
+  const isOn = (map: Record<string, boolean>, key: string) => map[key] !== false
+
   const togglePendingFlag = (key: string) => {
-    setPendingFlags((prev) => ({ ...prev, [key]: !prev[key] }))
+    setPendingFlags((prev) => ({ ...prev, [key]: !isOn(prev, key) }))
   }
 
-  const hasPendingChanges = TOGGLEABLE_KEYS.some((key) => pendingFlags[key] !== flags[key])
+  const hasPendingChanges = TOGGLEABLE_KEYS.some((key) => isOn(pendingFlags, key) !== isOn(flags, key))
 
   const confirmFlags = async () => {
-    const changedKeys = TOGGLEABLE_KEYS.filter((key) => pendingFlags[key] !== flags[key])
+    const changedKeys = TOGGLEABLE_KEYS.filter((key) => isOn(pendingFlags, key) !== isOn(flags, key))
     if (changedKeys.length === 0) return
     setSavingFlags(true)
     const changes: Record<string, boolean> = {}
-    changedKeys.forEach((key) => { changes[key] = pendingFlags[key] })
+    changedKeys.forEach((key) => { changes[key] = isOn(pendingFlags, key) })
     const res = await fetch('/api/admin/feature-flags', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -205,7 +211,7 @@ export default function Home() {
               {TOGGLEABLE_KEYS.map((key) => {
                 const f = FEATURES.find((f) => f.key === key)!
                 const enabled = pendingFlags[key] !== false
-                const changed = pendingFlags[key] !== flags[key]
+                const changed = isOn(pendingFlags, key) !== isOn(flags, key)
                 return (
                   <button
                     key={key}
