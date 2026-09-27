@@ -30,12 +30,10 @@ const FEATURES = [
   { key: 'vote',    href: '/vote',    icon: '🗳️', label: '投票',   desc: 'リアルタイムで投票・集計',             accent: '#ff2200' },
   { key: 'katten',  href: '/katten',  icon: '📊', label: '加点',   desc: '対象を選んでリアルタイム加点',         accent: '#0033cc' },
   { key: 'enkaku',  href: '/enkaku',  icon: '📡', label: '遠隔加点', desc: '遠隔から対象を選んでリアルタイム加点', accent: '#00aa44' },
-  { key: 'tap',     href: '/tap',     icon: '🎹', label: 'TAP',    desc: '音声ファイルを読み込んでパッド演奏',   accent: '#cc00ff' },
-  { key: 'bunkatsu', href: '/bunkatsu', icon: '📋', label: '分割一覧', desc: '投票とは別に管理する分割一覧',       accent: '#ff2200' },
 ]
 
 // 管理者がオン/オフできる機能キー
-const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku', 'tap', 'bunkatsu']
+const TOGGLEABLE_KEYS = ['vote', 'katten', 'enkaku']
 
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)
