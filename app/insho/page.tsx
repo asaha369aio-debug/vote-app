@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase, type Poll } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { buildResultsCsv, downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
+import { DEFAULT_INSHO_POINTS, MAX_INSHO_POINTS, MIN_INSHO_POINTS, fetchInshoPoints } from '@/lib/inshoSettings'
 
 const VOTER_NAME_KEY = 'voterName'
 const SITE_AUTH_KEY = 'siteAuth'
@@ -47,6 +48,29 @@ export default function InshoPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [exporting, setExporting] = useState(false)
+  const [points, setPoints] = useState(DEFAULT_INSHO_POINTS)
+  const [pointsInput, setPointsInput] = useState(String(DEFAULT_INSHO_POINTS))
+  const [savingPoints, setSavingPoints] = useState(false)
+
+  const handleSavePoints = async () => {
+    const value = Number(pointsInput)
+    if (!Number.isInteger(value) || value < MIN_INSHO_POINTS || value > MAX_INSHO_POINTS) {
+      alert(`持ち票は${MIN_INSHO_POINTS}〜${MAX_INSHO_POINTS}の整数で入力してください`)
+      return
+    }
+    setSavingPoints(true)
+    const res = await fetch('/api/admin/insho/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points: value }),
+    })
+    setSavingPoints(false)
+    if (res.ok) {
+      setPoints(value)
+    } else {
+      alert(res.status === 401 ? '管理者セッションが切れています。管理者ログインをやり直してください。' : '保存に失敗しました。')
+    }
+  }
 
   // 全項目・全質問の結果を1つのCSVにまとめて出力する
   const handleExportAll = async () => {
@@ -84,6 +108,7 @@ export default function InshoPage() {
     setVoterName(name)
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
     fetchPolls()
+    fetchInshoPoints().then((n) => { setPoints(n); setPointsInput(String(n)) })
 
     const channel = supabase.channel('polls-list-insho')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'polls', filter: 'category=eq.insho' }, (payload) => {
@@ -144,6 +169,30 @@ export default function InshoPage() {
 
       {/* 投票リスト */}
       <main className="max-w-2xl mx-auto px-6 py-8">
+        {isAdmin && (
+          <div className="mb-4 p-4 flex flex-wrap items-center gap-2" style={{ background: '#000000', border: '2.5px solid #000000' }}>
+            <span className="text-sm font-black" style={{ color: '#ffe600' }}>🔧 1人の持ち票（質問ごと）</span>
+            <input
+              type="number"
+              min={MIN_INSHO_POINTS}
+              max={MAX_INSHO_POINTS}
+              value={pointsInput}
+              onChange={(e) => setPointsInput(e.target.value)}
+              className="w-20 px-2 py-1 text-center font-black focus:outline-none"
+              style={{ background: '#ffffff', color: '#000000', border: '2px solid #ffe600' }}
+            />
+            <span className="text-sm font-black" style={{ color: '#ffe600' }}>票</span>
+            <button
+              onClick={handleSavePoints}
+              disabled={savingPoints || Number(pointsInput) === points}
+              className="text-sm font-black px-3 py-1 transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{ background: '#ffe600', color: '#000000' }}
+            >
+              {savingPoints ? '保存中...' : '保存'}
+            </button>
+            <span className="text-xs w-full" style={{ color: '#aaaaaa' }}>すべての分割印象投票に適用されます（{MIN_INSHO_POINTS}〜{MAX_INSHO_POINTS}票）</span>
+          </div>
+        )}
         {isAdmin && polls.length > 0 && (
           <div className="mb-4 text-right">
             <button

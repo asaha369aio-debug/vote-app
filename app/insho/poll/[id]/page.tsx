@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
-import VoteCountEditor from '@/components/VoteCountEditor'
+import { DEFAULT_INSHO_POINTS, fetchInshoPoints } from '@/lib/inshoSettings'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -16,9 +16,6 @@ type VoteRecord = { poll_id: string; option_id: string; voter_name: string | nul
 
 // 1:1 → 2:1 → 3:1 → 2:1 のパターンで dominant オプションの幅を変化させる
 const RATIO_PATTERN = [1, 2, 3, 2]
-
-// 1人が配分できる持ち票の数
-const TOTAL_POINTS = 10
 
 function patternPercents(frame: number, count: number): number[] {
   if (count === 0) return []
@@ -45,6 +42,8 @@ export default function InshoPollPage() {
   const [loading, setLoading] = useState(false)
   // 質問ごと・選択肢ごとの配分票数（投票後は自分の配分として表示に使う）
   const [allocation, setAllocation] = useState<Record<string, Record<string, number>>>({})
+  // 1人が質問ごとに配分できる持ち票の数（管理者が一覧画面で設定）
+  const [totalPoints, setTotalPoints] = useState(DEFAULT_INSHO_POINTS)
   const [confirming, setConfirming] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allVotes, setAllVotes] = useState<VoteRecord[]>([])
@@ -70,7 +69,7 @@ export default function InshoPollPage() {
 
   const storageKey = `voted-${id}`
   const remainingOf = (questionId: string) =>
-    TOTAL_POINTS - Object.values(allocation[questionId] ?? {}).reduce((sum, n) => sum + n, 0)
+    totalPoints - Object.values(allocation[questionId] ?? {}).reduce((sum, n) => sum + n, 0)
   const allAllocated = questions.length > 0 && questions.every((q) => remainingOf(q.id) === 0)
 
   // ここから下は管理者が選択中の質問についての集計（結果発表・投票者一覧で使う）
@@ -121,10 +120,12 @@ export default function InshoPollPage() {
     let refetchTimer: ReturnType<typeof setTimeout> | null = null
     let channel: ReturnType<typeof supabase.channel> | null = null
     const load = async () => {
-      const [{ data: itemData }, { data: questionData }] = await Promise.all([
+      const [{ data: itemData }, { data: questionData }, points] = await Promise.all([
         supabase.from('polls').select('*').eq('id', id).single(),
         supabase.from('polls').select('*').eq('category', inshoQuestionCategory(id)).order('created_at'),
+        fetchInshoPoints(),
       ])
+      setTotalPoints(points)
       if (!itemData) return
       const qs = questionsOrSelf(itemData, questionData ?? [])
       const questionIds = qs.map((q) => q.id)
@@ -160,7 +161,7 @@ export default function InshoPollPage() {
       const current = prev[questionId] ?? {}
       const next = (current[optionId] ?? 0) + delta
       const used = Object.values(current).reduce((sum, n) => sum + n, 0)
-      if (next < 0 || (delta > 0 && used >= TOTAL_POINTS)) return prev
+      if (next < 0 || (delta > 0 && used >= totalPoints)) return prev
       return { ...prev, [questionId]: { ...current, [optionId]: next } }
     })
   }
@@ -421,7 +422,7 @@ export default function InshoPollPage() {
         <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6">
           <h1 className="text-2xl font-black text-black mb-2">{item.question}</h1>
           {!voted && (
-            <p className="text-sm font-bold text-black/60 mb-6">質問ごとに持ち票 {TOTAL_POINTS} 票を配分してください</p>
+            <p className="text-sm font-bold text-black/60 mb-6">質問ごとに持ち票 {totalPoints} 票を配分してください</p>
           )}
 
           {/* 質問ごとの配分（1段階目） */}
@@ -601,16 +602,6 @@ export default function InshoPollPage() {
                   <button onClick={handleExportCsv} style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }} className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80">
                     📥 結果をCSVで出力{questions.length > 1 ? '（全質問）' : ''}
                   </button>
-                </div>
-                <div className="mt-3">
-                  <VoteCountEditor
-                    key={poll.id}
-                    pollId={poll.id}
-                    options={options}
-                    counts={Object.fromEntries(voteCounts.map((v) => [v.option_id, v.count]))}
-                    colors={BAR_COLORS}
-                    onSaved={() => fetchVotes(questions.map((q) => q.id))}
-                  />
                 </div>
               </div>
             </div>
