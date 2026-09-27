@@ -143,8 +143,11 @@ export default function InshoPage() {
             <button onClick={fetchPolls} disabled={reloading} className="w-9 h-9 flex items-center justify-center transition-opacity hover:opacity-70 disabled:opacity-40 text-xl font-black" style={{ color: '#333' }}>
               <span className={reloading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
             </button>
-            <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
-            <span className="font-black text-black text-sm px-2 py-0.5" style={{ border: '2px solid #000' }}>分割印象投票</span>
+            {/* ロゴの下に機能名を表示 */}
+            <div className="flex flex-col items-start gap-1">
+              <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
+              <span className="font-black text-black text-sm px-2 py-0.5 whitespace-nowrap" style={{ border: '2px solid #000' }}>分割印象投票</span>
+            </div>
           </div>
           <div className="flex gap-2 items-center flex-wrap justify-end">
             {editingName ? (
