@@ -149,7 +149,7 @@ export default function EditPoll() {
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/vote" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
           <span className="text-black/40 font-bold">|</span>
-          <h1 className="text-xl font-black text-black">投票を編集</h1>
+          <h1 className="text-xl font-black text-black">最終投票を編集</h1>
         </div>
       </header>
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isAdminRequest } from '@/lib/adminSession'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-const VALID_CATEGORIES = ['vote', 'bunkatsu']
+const VALID_CATEGORIES = ['vote', 'bunkatsu', 'insho']
 
 export async function POST(req: NextRequest) {
   if (!isAdminRequest(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
