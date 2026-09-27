@@ -97,7 +97,12 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ changes }),
     })
-    if (res.ok) setFlags((prev) => ({ ...prev, ...pendingFlags }))
+    if (res.ok) {
+      setFlags((prev) => ({ ...prev, ...pendingFlags }))
+    } else {
+      const { error } = await res.json().catch(() => ({ error: '' }))
+      alert(`反映に失敗しました${error ? `: ${error}` : ''}`)
+    }
     setSavingFlags(false)
   }
 
