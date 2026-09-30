@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
-import { POINTS_DEFAULTS, fetchPoints } from '@/lib/pointsSettings'
+import { POINTS_DEFAULTS, fetchItemPoints } from '@/lib/pointsSettings'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -101,7 +101,7 @@ export default function PollPage() {
     supabase.from('polls').select('*').eq('id', id).single().then(({ data }) => setPoll(data))
     supabase.from('poll_options').select('*').eq('poll_id', id).then(({ data }) => setOptions(data ?? []))
     fetchVotes()
-    fetchPoints('vote').then((n) => { setTotalPoints(n); setPointsLoaded(true) })
+    fetchItemPoints('vote', id).then((n) => { setTotalPoints(n); setPointsLoaded(true) })
     const saved = localStorage.getItem(storageKey)
     if (saved) {
       setVoted(true)

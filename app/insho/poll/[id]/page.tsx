@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
-import { POINTS_DEFAULTS, fetchPoints } from '@/lib/pointsSettings'
+import { POINTS_DEFAULTS, fetchItemPoints } from '@/lib/pointsSettings'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -123,7 +123,7 @@ export default function InshoPollPage() {
       const [{ data: itemData }, { data: questionData }, points] = await Promise.all([
         supabase.from('polls').select('*').eq('id', id).single(),
         supabase.from('polls').select('*').eq('category', inshoQuestionCategory(id)).order('created_at'),
-        fetchPoints('insho'),
+        fetchItemPoints('insho', id),
       ])
       setTotalPoints(points)
       if (!itemData) return

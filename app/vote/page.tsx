@@ -144,7 +144,7 @@ export default function VotePage() {
       {/* 投票リスト */}
       <main className="max-w-2xl mx-auto px-6 py-8">
         {isAdmin && (
-          <PointsSettingPanel kind="vote" label="1人の持ち票" note="すべての最終投票に適用されます。1票なら今までどおり1つを選ぶ投票です" />
+          <PointsSettingPanel kind="vote" label="1人の持ち票" note="これから作成する最終投票に適用されます。作成済みの項目は作成時の票数のまま。1票なら1つを選ぶ投票です" />
         )}
         {isAdmin && polls.length > 0 && (
           <div className="mb-4 text-right">

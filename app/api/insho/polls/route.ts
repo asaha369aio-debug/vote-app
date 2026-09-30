@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { INSHO_CATEGORY, inshoQuestionCategory } from '@/lib/insho'
 import { deletePolls } from '@/lib/pollUpdate'
+import { savePointsSnapshot } from '@/lib/pointsSnapshot'
 
 // 分割印象投票は管理者以外も作成できる。
 // タイトル（一覧に出る項目）と、質問・選択肢の組を複数受け取り、1つの項目としてまとめて作成する
@@ -50,6 +51,13 @@ export async function POST(req: NextRequest) {
       await deletePolls([...createdIds, item.id])
       return NextResponse.json({ error: (pollError ?? optError)?.message ?? 'failed to create question' }, { status: 500 })
     }
+  }
+
+  // 作成時点の持ち票をこの項目の値として保存する（あとで全体設定を変えても変わらない）
+  const { error: pointsError } = await savePointsSnapshot('insho', item.id)
+  if (pointsError) {
+    await deletePolls([...createdIds, item.id])
+    return NextResponse.json({ error: pointsError.message }, { status: 500 })
   }
 
   return NextResponse.json({ poll: item })

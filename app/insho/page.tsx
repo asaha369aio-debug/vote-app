@@ -148,7 +148,7 @@ export default function InshoPage() {
       {/* 投票リスト */}
       <main className="max-w-2xl mx-auto px-6 py-8">
         {isAdmin && (
-          <PointsSettingPanel kind="insho" label="1人の持ち票（質問ごと）" note="すべての分割印象投票に適用されます" />
+          <PointsSettingPanel kind="insho" label="1人の持ち票（質問ごと）" note="これから作成する分割印象投票に適用されます。作成済みの項目は作成時の票数のまま" />
         )}
         {isAdmin && polls.length > 0 && (
           <div className="mb-4 text-right">

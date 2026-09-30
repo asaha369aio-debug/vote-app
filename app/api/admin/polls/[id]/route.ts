@@ -3,6 +3,7 @@ import { isAdminRequest } from '@/lib/adminSession'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { inshoQuestionCategory } from '@/lib/insho'
 import { deletePolls, normalizeOptions, updatePollWithOptions } from '@/lib/pollUpdate'
+import { deletePointsSnapshot } from '@/lib/pointsSnapshot'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isAdminRequest(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -26,6 +27,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // 分割印象投票の項目なら、ぶら下がっている質問もまとめて削除する
   const { data: questions } = await supabaseAdmin.from('polls').select('id').eq('category', inshoQuestionCategory(id))
   await deletePolls([...(questions ?? []).map((q) => q.id), id])
+  await deletePointsSnapshot(id)
 
   return NextResponse.json({ ok: true })
 }
