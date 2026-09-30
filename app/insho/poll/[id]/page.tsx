@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { playReveal, playTick, unlockSfx } from '@/lib/sfx'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
@@ -57,6 +58,15 @@ export default function InshoPollPage() {
   // 0票バーを消して票ありバーで100%を埋める「再配置」フェーズ中はtransitionをなしにする
   const [collapsing, setCollapsing] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 結果発表の効果音のオン/オフ（アニメーション中に切り替えても反映されるよう ref でも持つ）
+  const [soundOn, setSoundOn] = useState(true)
+  const soundOnRef = useRef(true)
+  const toggleSound = () => {
+    const next = !soundOnRef.current
+    soundOnRef.current = next
+    setSoundOn(next)
+    try { localStorage.setItem('sfxOn', next ? '1' : '0') } catch {}
+  }
 
   const FONTS = [
     { key: 'system', label: 'System',  family: 'system-ui, sans-serif' },
@@ -153,6 +163,11 @@ export default function InshoPollPage() {
   }, [id])
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sfxOn') !== '0'
+      soundOnRef.current = saved
+      setSoundOn(saved)
+    } catch {}
     return () => { if (intervalRef.current) clearTimeout(intervalRef.current) }
   }, [])
 
@@ -218,6 +233,7 @@ export default function InshoPollPage() {
   const handleStart = () => {
     const count = options.length; if (count === 0) return
     setPhase('suspense')
+    if (soundOnRef.current) unlockSfx()
     let frame = 0
     let lastPercents = patternPercents(frame, count)
     setDisplayPercents(lastPercents)
@@ -249,10 +265,12 @@ export default function InshoPollPage() {
             setCollapsing(false)
             setDisplayPercents(exactPercents)
             setPhase('revealed')
+            if (soundOnRef.current) playReveal()
           }))
         } else {
           lastPercents = patternPercents(frame, count)
           setDisplayPercents(lastPercents)
+          if (soundOnRef.current) playTick(Math.min(1, elapsed / TOTAL_MS))
           tick()
         }
       }, interval)
@@ -402,6 +420,14 @@ export default function InshoPollPage() {
           className="text-sm font-black px-1 py-0.5 focus:outline-none"
         />
         <span className="text-xs font-black" style={{ color: '#ffe600' }}>秒</span>
+        <button
+          onClick={toggleSound}
+          title="効果音のオン/オフ"
+          className="ml-2 text-xs font-black px-2 py-0.5"
+          style={{ background: soundOn ? '#ffe600' : '#333333', color: soundOn ? '#000000' : '#ffe600', border: '1px solid #ffe600' }}
+        >
+          {soundOn ? '🔊 SE ON' : '🔇 SE OFF'}
+        </button>
       </div>
       </>
     )
