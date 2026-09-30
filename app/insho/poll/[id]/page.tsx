@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
 import { inshoQuestionCategory, questionsOrSelf } from '@/lib/insho'
 import { downloadCsv, fetchAllVotes } from '@/lib/resultsCsv'
-import { DEFAULT_INSHO_POINTS, fetchInshoPoints } from '@/lib/inshoSettings'
+import { POINTS_DEFAULTS, fetchPoints } from '@/lib/pointsSettings'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -43,7 +43,7 @@ export default function InshoPollPage() {
   // 質問ごと・選択肢ごとの配分票数（投票後は自分の配分として表示に使う）
   const [allocation, setAllocation] = useState<Record<string, Record<string, number>>>({})
   // 1人が質問ごとに配分できる持ち票の数（管理者が一覧画面で設定）
-  const [totalPoints, setTotalPoints] = useState(DEFAULT_INSHO_POINTS)
+  const [totalPoints, setTotalPoints] = useState(POINTS_DEFAULTS.insho)
   const [confirming, setConfirming] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allVotes, setAllVotes] = useState<VoteRecord[]>([])
@@ -123,7 +123,7 @@ export default function InshoPollPage() {
       const [{ data: itemData }, { data: questionData }, points] = await Promise.all([
         supabase.from('polls').select('*').eq('id', id).single(),
         supabase.from('polls').select('*').eq('category', inshoQuestionCategory(id)).order('created_at'),
-        fetchInshoPoints(),
+        fetchPoints('insho'),
       ])
       setTotalPoints(points)
       if (!itemData) return

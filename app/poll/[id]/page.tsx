@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Poll, type PollOption } from '@/lib/supabase'
+import { POINTS_DEFAULTS, fetchPoints } from '@/lib/pointsSettings'
 
 // F デザイン カラーブロック用カラー（結果バーに使用）
 const BAR_COLORS = ['#ff2200', '#0033cc', '#00aa44', '#ff6600', '#7700cc', '#007799']
@@ -38,6 +39,11 @@ export default function PollPage() {
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  // 1人の持ち票（管理者が一覧画面で設定）。1票なら選択式、2票以上なら配分式で投票する
+  const [totalPoints, setTotalPoints] = useState(POINTS_DEFAULTS.vote)
+  const [pointsLoaded, setPointsLoaded] = useState(false)
+  const [allocation, setAllocation] = useState<Record<string, number>>({})
+  const [confirming, setConfirming] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [allVotes, setAllVotes] = useState<VoteRecord[]>([])
   const [phase, setPhase] = useState<'hidden' | 'ready' | 'suspense' | 'revealed'>('hidden')
@@ -95,7 +101,13 @@ export default function PollPage() {
     supabase.from('polls').select('*').eq('id', id).single().then(({ data }) => setPoll(data))
     supabase.from('poll_options').select('*').eq('poll_id', id).then(({ data }) => setOptions(data ?? []))
     fetchVotes()
-    if (localStorage.getItem(storageKey)) setVoted(true)
+    fetchPoints('vote').then((n) => { setTotalPoints(n); setPointsLoaded(true) })
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      setVoted(true)
+      // 配分式で投票した場合は { 選択肢ID: 票数 } を保存している（選択式は '1'）
+      try { const parsed = JSON.parse(saved); if (parsed && typeof parsed === 'object') setAllocation(parsed) } catch {}
+    }
     setIsAdmin(localStorage.getItem('isAdmin') === '1')
     const channel = supabase.channel('votes-' + id)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes', filter: `poll_id=eq.${id}` }, () => fetchVotes())
@@ -117,6 +129,40 @@ export default function PollPage() {
     }
     localStorage.setItem(storageKey, '1'); setVoted(true); setLoading(false); setPendingId(null)
   }
+
+  const remaining = totalPoints - Object.values(allocation).reduce((sum, n) => sum + n, 0)
+
+  const changeAllocation = (optionId: string, delta: number) => {
+    setAllocation((prev) => {
+      const next = (prev[optionId] ?? 0) + delta
+      const used = Object.values(prev).reduce((sum, n) => sum + n, 0)
+      if (next < 0 || (delta > 0 && used >= totalPoints)) return prev
+      return { ...prev, [optionId]: next }
+    })
+  }
+
+  // 配分式の投票（1票=1行で保存する）
+  const handleAllocationVote = async () => {
+    if (remaining !== 0) return
+    setLoading(true)
+    const voterName = localStorage.getItem('voterName') ?? '名無し'
+    const rows = Object.entries(allocation).flatMap(([option_id, n]) =>
+      Array.from({ length: n }, () => ({ poll_id: id, option_id, voter_name: voterName }))
+    )
+    const { error } = await supabase.from('votes').insert(rows)
+    if (error) { alert('投票に失敗しました。もう一度お試しください。'); setLoading(false); return }
+    localStorage.setItem(storageKey, JSON.stringify(allocation)); setVoted(true); setLoading(false); setConfirming(false)
+  }
+
+  // 投票者一覧用：投票者ごとに選択肢別の票数をまとめる
+  const voterAllocations = Object.entries(
+    allVotes.reduce<Record<string, Record<string, number>>>((acc, v) => {
+      const name = v.voter_name ?? '名無し'
+      acc[name] ??= {}
+      acc[name][v.option_id] = (acc[name][v.option_id] ?? 0) + 1
+      return acc
+    }, {})
+  )
 
   const handleReveal = () => {
     if (phase === 'ready' || phase === 'revealed') { if (intervalRef.current) clearTimeout(intervalRef.current); setPhase('hidden'); return }
@@ -168,7 +214,7 @@ export default function PollPage() {
     tick()
   }
 
-  if (!poll) {
+  if (!poll || !pointsLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#ffe600' }}>
         <p className="font-black text-black text-lg animate-pulse">読み込み中...</p>
@@ -330,62 +376,156 @@ export default function PollPage() {
         <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6">
           <h1 className="text-2xl font-black text-black mb-6">{poll.question}</h1>
 
-          {/* 選択肢（1段階目：選択） */}
-          <div className="space-y-3 mb-6">
-            {options.map((opt, i) => {
-              const color = BAR_COLORS[i % BAR_COLORS.length]
-              const isVotedSelection = selectedId === opt.id
-              const isPending = pendingId === opt.id
-              return (
-                <div key={opt.id}>
-                  {!voted ? (
-                    <button
-                      onClick={() => setPendingId(opt.id)}
-                      disabled={loading}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-opacity hover:opacity-80 disabled:opacity-50"
-                      style={{ background: isPending ? color : '#ffffff', border: `2.5px solid ${color}` }}
-                    >
-                      <span className="w-4 h-4 flex-shrink-0" style={{ background: isPending ? '#ffffff' : color }} />
-                      <span className="font-bold flex-1" style={{ color: isPending ? '#ffffff' : '#000000' }}>{opt.text}</span>
-                      {isPending && <span className="text-lg font-black" style={{ color: '#ffffff' }}>✓</span>}
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
-                      <span className="text-black font-bold flex-1">{opt.text}</span>
-                      {isVotedSelection && <span className="text-sm font-black" style={{ color }}>✓ あなたの票</span>}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          {totalPoints === 1 ? (
+            <>
+            {/* 選択肢（1段階目：選択） */}
+            <div className="space-y-3 mb-6">
+              {options.map((opt, i) => {
+                const color = BAR_COLORS[i % BAR_COLORS.length]
+                const isVotedSelection = selectedId === opt.id
+                const isPending = pendingId === opt.id
+                return (
+                  <div key={opt.id}>
+                    {!voted ? (
+                      <button
+                        onClick={() => setPendingId(opt.id)}
+                        disabled={loading}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-opacity hover:opacity-80 disabled:opacity-50"
+                        style={{ background: isPending ? color : '#ffffff', border: `2.5px solid ${color}` }}
+                      >
+                        <span className="w-4 h-4 flex-shrink-0" style={{ background: isPending ? '#ffffff' : color }} />
+                        <span className="font-bold flex-1" style={{ color: isPending ? '#ffffff' : '#000000' }}>{opt.text}</span>
+                        {isPending && <span className="text-lg font-black" style={{ color: '#ffffff' }}>✓</span>}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
+                        <span className="text-black font-bold flex-1">{opt.text}</span>
+                        {isVotedSelection && <span className="text-sm font-black" style={{ color }}>✓ あなたの票</span>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
 
-          {/* 確認（2段階目） */}
-          {!voted && pendingId && (
-            <div className="mb-8 p-4 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
-              <p className="text-black font-bold mb-3">
-                「{options.find((o) => o.id === pendingId)?.text}」に投票します。よろしいですか？
-              </p>
-              <div className="flex items-center justify-center gap-3">
+            {/* 確認（2段階目） */}
+            {!voted && pendingId && (
+              <div className="mb-8 p-4 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
+                <p className="text-black font-bold mb-3">
+                  「{options.find((o) => o.id === pendingId)?.text}」に投票します。よろしいですか？
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => handleVote(pendingId)}
+                    disabled={loading}
+                    style={{ background: '#000000', color: '#ffe600' }}
+                    className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    {loading ? '投票中...' : 'この内容で投票する'}
+                  </button>
+                  <button
+                    onClick={() => setPendingId(null)}
+                    disabled={loading}
+                    style={{ background: '#ffe600', color: '#000000', border: '2px solid #000000' }}
+                    className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    選び直す
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
+          ) : (
+            <>
+            {/* 残り票数（配分式） */}
+            {!voted && (
+              <div className="mb-4 flex items-center justify-between px-4 py-2" style={{ background: remaining === 0 ? '#00aa44' : '#000000' }}>
+                <span className="text-sm font-black" style={{ color: remaining === 0 ? '#ffffff' : '#ffe600' }}>
+                  持ち票 {totalPoints} 票を配分してください
+                </span>
+                <span className="font-black text-lg" style={{ color: remaining === 0 ? '#ffffff' : '#ffe600' }}>
+                  {remaining === 0 ? '✓ 配分完了' : `残り ${remaining} 票`}
+                </span>
+              </div>
+            )}
+
+            {/* 選択肢（1段階目：配分） */}
+            <div className="space-y-3 mb-6">
+              {options.map((opt, i) => {
+                const color = BAR_COLORS[i % BAR_COLORS.length]
+                const n = allocation[opt.id] ?? 0
+                return (
+                  <div key={opt.id} className="flex items-center gap-3 px-4 py-3" style={{ border: `2.5px solid ${color}`, background: n > 0 ? `${color}1a` : '#ffffff' }}>
+                    <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
+                    <span className="text-black font-bold flex-1">{opt.text}</span>
+                    {!voted && !confirming ? (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => changeAllocation(opt.id, -1)}
+                          disabled={n === 0}
+                          className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                          style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
+                        >
+                          −
+                        </button>
+                        <span className="w-8 text-center font-black text-xl" style={{ color }}>{n}</span>
+                        <button
+                          onClick={() => changeAllocation(opt.id, 1)}
+                          disabled={remaining === 0}
+                          className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                          style={{ background: color, color: '#ffffff', border: '2px solid #000000' }}
+                        >
+                          ＋
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-black flex-shrink-0" style={{ color }}>{n} 票</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 配分を確定へ進むボタン */}
+            {!voted && !confirming && (
+              <div className="mb-8 text-center">
                 <button
-                  onClick={() => handleVote(pendingId)}
-                  disabled={loading}
+                  onClick={() => setConfirming(true)}
+                  disabled={remaining !== 0}
                   style={{ background: '#000000', color: '#ffe600' }}
-                  className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-30"
                 >
-                  {loading ? '投票中...' : 'この内容で投票する'}
-                </button>
-                <button
-                  onClick={() => setPendingId(null)}
-                  disabled={loading}
-                  style={{ background: '#ffe600', color: '#000000', border: '2px solid #000000' }}
-                  className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
-                >
-                  選び直す
+                  {remaining === 0 ? 'この配分で進む' : `あと ${remaining} 票配分してください`}
                 </button>
               </div>
-            </div>
+            )}
+
+            {/* 確認（2段階目） */}
+            {!voted && confirming && (
+              <div className="mb-8 p-4 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
+                <p className="text-black font-bold mb-3">この配分で投票します。よろしいですか？</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={handleAllocationVote}
+                    disabled={loading}
+                    style={{ background: '#000000', color: '#ffe600' }}
+                    className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    {loading ? '投票中...' : 'この内容で投票する'}
+                  </button>
+                  <button
+                    onClick={() => setConfirming(false)}
+                    disabled={loading}
+                    style={{ background: '#ffe600', color: '#000000', border: '2px solid #000000' }}
+                    className="font-black px-6 py-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    配分し直す
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           {/* 投票完了メッセージ */}
@@ -404,7 +544,7 @@ export default function PollPage() {
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-black text-black">
                   📋 投票者一覧
-                  <span className="ml-2" style={{ color: '#ff2200' }}>{allVotes.length}</span>
+                  <span className="ml-2" style={{ color: '#ff2200' }}>{voterAllocations.length}</span>
                   <span className="text-black/50 font-normal">名が投票済み</span>
                 </p>
                 <button
@@ -416,25 +556,29 @@ export default function PollPage() {
                 </button>
               </div>
               {showVoterList && (
-                allVotes.length === 0 ? (
+                voterAllocations.length === 0 ? (
                   <p className="text-sm text-black/50 mb-3">まだ誰も投票していません</p>
                 ) : (
                   <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 mb-3">
-                    {allVotes.map((vote, i) => {
-                      const optIndex = options.findIndex((o) => o.id === vote.option_id)
-                      const option = options[optIndex]
-                      const color = optIndex >= 0 ? BAR_COLORS[optIndex % BAR_COLORS.length] : '#888888'
-                      return (
-                        <div key={i} className="flex items-center gap-2 text-sm px-3 py-2" style={{ border: '1.5px solid #000000', background: '#ffe600' }}>
-                          <span className="font-bold text-black flex-1 truncate">{vote.voter_name ?? '名無し'}</span>
-                          <span className="text-black/40 text-xs font-black">→</span>
-                          <span className="flex items-center gap-1.5 font-black" style={{ color }}>
-                            <span className="w-2.5 h-2.5 flex-shrink-0" style={{ background: color }} />
-                            {option?.text ?? '不明'}
-                          </span>
-                        </div>
-                      )
-                    })}
+                    {voterAllocations.map(([name, counts]) => (
+                      <div key={name} className="flex items-start gap-2 text-sm px-3 py-2" style={{ border: '1.5px solid #000000', background: '#ffe600' }}>
+                        <span className="font-bold text-black flex-1 truncate">{name}</span>
+                        <span className="text-black/40 text-xs font-black mt-0.5">→</span>
+                        <span className="flex flex-wrap gap-x-3 gap-y-1 justify-end">
+                          {options.map((opt, optIndex) => {
+                            const n = counts[opt.id] ?? 0
+                            if (n === 0) return null
+                            const color = BAR_COLORS[optIndex % BAR_COLORS.length]
+                            return (
+                              <span key={opt.id} className="flex items-center gap-1.5 font-black" style={{ color }}>
+                                <span className="w-2.5 h-2.5 flex-shrink-0" style={{ background: color }} />
+                                {opt.text}{n > 1 ? ` ${n}` : ''}
+                              </span>
+                            )
+                          })}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )
               )}
