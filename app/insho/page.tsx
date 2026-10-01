@@ -12,28 +12,26 @@ import PointsSettingPanel from '@/components/PointsSettingPanel'
 const VOTER_NAME_KEY = 'voterName'
 const SITE_AUTH_KEY = 'siteAuth'
 
+// qol_final_ui_app_top.jpg のデザインに合わせた配色
 const th = {
-  pageBg: '#ffe600',
-  headerBg: '#ffe600',
+  // 上下が淡いオレンジ、中央が明るい黄色のグラデーション
+  pageBg: 'linear-gradient(180deg, #ffd966 0%, #ffff00 35%, #ffd966 100%)',
+  headerBorder: '#000000',
+  namePillBg: '#fff2cc',
   cardBg: '#ffffff', cardBorder: '#000000',
-  accents: ['#ff2200', '#0033cc', '#00aa44', '#ff6600'],
-  titleColor: '#000000', mutedColor: '#444444',
-  primaryBg: '#000000', primaryText: '#ffe600',
-  secondaryBorder: '#000000',
-  votedBg: '#00aa44', votedBorder: '#000000', votedText: '#ffffff',
-  numText: '#ffffff', numBg: '#000000',
+  titleColor: '#000000', mutedColor: '#222222',
+  votedBg: '#00aa44', votedText: '#ffffff',
   dangerBg: '#ff2200', dangerText: '#ffffff',
-  cancelBg: '#ffe600', cancelText: '#000000',
-  fabBg: '#000000', fabText: '#ffe600',
-  fabMenuBg: '#ffffff', fabMenuBorder: '#000000',
-  fabMenuPrimary: '#000000', fabMenuDanger: '#ff2200',
+  cancelBg: '#ffffff', cancelText: '#000000',
+  fabBg: '#3d3418', fabText: '#ffffff', fabBorder: '#8a8060',
+  menuBg: '#ffffff', menuBorder: '#000000', menuPrimary: '#000000', menuDanger: '#ff2200',
 }
 
-const cardStyle = (i: number): React.CSSProperties => ({
-  background: th.cardBg,
-  border: '2.5px solid #000000',
-  borderLeft: `6px solid ${th.accents[i % 4]}`,
-})
+// アイコンボタン（編集・削除）
+const sideButtonStyle: React.CSSProperties = {
+  width: '34px',
+  fontSize: '1.1rem',
+}
 
 export default function InshoPage() {
   const router = useRouter()
@@ -109,110 +107,97 @@ export default function InshoPage() {
 
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
-      {/* ヘッダー */}
-      <header style={{ background: th.headerBg, borderBottom: '3px solid #000000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* 機能選択へ戻る */}
-            <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg" title="機能選択へ戻る">←</Link>
-            <button onClick={fetchPolls} disabled={reloading} className="w-9 h-9 flex items-center justify-center transition-opacity hover:opacity-70 disabled:opacity-40 text-xl font-black" style={{ color: '#333' }}>
-              <span className={reloading ? 'inline-block animate-spin' : 'inline-block'}>↻</span>
-            </button>
-            {/* ロゴの下に機能名を表示 */}
-            <div className="flex flex-col items-start gap-1">
-              <Image src="/qol_logo.png" alt="QOL" width={100} height={34} style={{ objectFit: 'contain' }} priority />
-              <span className="font-black text-black text-sm px-2 py-0.5 whitespace-nowrap" style={{ border: '2px solid #000' }}>分割印象投票</span>
-            </div>
-          </div>
-          <div className="flex gap-2 items-center flex-wrap justify-end">
+      {/* ヘッダー: ← ロゴ [分割印象投票] (ユーザー名) ↶ */}
+      <header style={{ borderBottom: `1.5px solid ${th.headerBorder}` }}>
+        <div className="max-w-2xl mx-auto px-3 py-3 flex items-center gap-1.5">
+          <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-2xl leading-none flex-shrink-0" title="機能選択へ戻る">←</Link>
+          <Image src="/qol_logo.png" alt="QOL" width={78} height={26} style={{ objectFit: 'contain' }} className="flex-shrink-0" priority />
+          <span className="font-black text-black text-sm px-1.5 py-0.5 whitespace-nowrap flex-shrink-0" style={{ border: '2px solid #000' }}>分割印象投票</span>
+          <div className="flex-1 min-w-0 flex justify-center">
             {editingName ? (
-              <form onSubmit={handleNameEdit} className="flex items-center gap-1">
-                <input type="text" value={editNameInput} onChange={(e) => setEditNameInput(e.target.value)} className="w-24 text-sm px-2 py-1 focus:outline-none" style={{ border: '1px solid #000', background: 'rgba(0,0,0,0.08)' }} placeholder="新しい名前" autoFocus maxLength={20} />
+              <form onSubmit={handleNameEdit} className="flex items-center gap-1 min-w-0">
+                <input type="text" value={editNameInput} onChange={(e) => setEditNameInput(e.target.value)} className="w-24 text-sm px-2 py-1 focus:outline-none" style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg }} placeholder="新しい名前" autoFocus maxLength={20} />
                 <button type="submit" className="text-xs font-black px-2 py-1 hover:opacity-80" style={{ background: 'rgba(0,0,0,0.12)' }}>変更</button>
                 <button type="button" onClick={() => setEditingName(false)} className="text-xs px-1 hover:opacity-80">✕</button>
               </form>
             ) : (
-              <button onClick={() => { setEditNameInput(voterName); setEditingName(true) }} className="flex items-center gap-1.5 text-sm px-3 py-1.5 hover:opacity-70 transition-opacity" style={{ border: '1px solid #000', borderRadius: '999px' }}>
-                <span>👤</span><span className="font-black">{voterName}</span><span className="text-xs opacity-40">✎</span>
+              <button
+                onClick={() => { setEditNameInput(voterName); setEditingName(true) }}
+                className="max-w-full truncate text-sm font-black px-3 py-1 hover:opacity-70 transition-opacity"
+                style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg }}
+                title="名前を変更"
+              >
+                {voterName}
               </button>
             )}
-            {!isAdmin && (
-              <Link href="/admin/login" className="text-sm px-3 py-1.5 hover:opacity-80 transition-opacity" style={{ border: '1px solid #000', borderRadius: '999px' }}>管理者ログイン</Link>
-            )}
-            {/* 分割印象投票は誰でも作成できる */}
-            <Link href="/insho/create" className="font-black px-4 py-1.5 text-sm hover:opacity-80 transition-opacity" style={{ background: th.primaryBg, color: th.primaryText }}>＋ 新しい分割印象投票</Link>
           </div>
+          <button onClick={fetchPolls} disabled={reloading} className="text-3xl font-black leading-none flex-shrink-0 transition-opacity hover:opacity-60 disabled:opacity-40" title="再読み込み">
+            <span className={reloading ? 'inline-block animate-spin' : 'inline-block'}>↶</span>
+          </button>
         </div>
       </header>
 
-      {/* 投票リスト */}
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-3 pb-28">
+        {/* 管理者: 1人の持ち票 */}
         {isAdmin && (
-          <PointsSettingPanel kind="insho" label="1人の持ち票（質問ごと）" note="これから作成する分割印象投票に適用されます。作成済みの項目は作成時の票数のまま" />
+          <PointsSettingPanel
+            kind="insho"
+            variant="bar"
+            label="現在の1人の持ち票(質問ごと)"
+            note="これから作成する分割印象投票に適用されます。作成済みの項目は作成時の票数のまま"
+          />
         )}
-        {isAdmin && polls.length > 0 && (
-          <div className="mb-4 text-right">
-            <button
-              onClick={handleExportAll}
-              disabled={exporting}
-              className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80 disabled:opacity-50"
-              style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
-            >
-              {exporting ? '出力中...' : '📥 全結果をCSVで出力'}
-            </button>
-          </div>
-        )}
+
         {polls.length === 0 ? (
           <div className="text-center py-20" style={{ color: th.mutedColor }}>
             <p className="text-5xl mb-4">📭</p>
             <p className="text-lg font-black">まだ分割印象投票がありません</p>
+            <p className="text-sm mt-2">右下の＋から作成できます</p>
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {polls.map((poll, i) => {
               const hasVoted = !!localStorage.getItem(`voted-${poll.id}`)
               const isConfirming = confirmDeleteId === poll.id
               const isDeleting = deletingId === poll.id
               return (
-                <li key={poll.id}>
-                  <div style={cardStyle(i)}>
-                    {isAdmin && isConfirming ? (
-                      <div className="px-5 py-4 flex items-center justify-between gap-3">
-                        <p className="text-sm font-black" style={{ color: th.titleColor }}>この投票を削除しますか？</p>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
-                            {isDeleting ? '削除中...' : '削除する'}
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ background: th.cancelBg, color: th.cancelText, border: '1.5px solid #000' }}>
-                            キャンセル
-                          </button>
-                        </div>
+                <li key={poll.id} style={{ background: th.cardBg, border: `3px solid ${th.cardBorder}` }}>
+                  {isAdmin && isConfirming ? (
+                    <div className="px-4 py-4 flex items-center justify-between gap-3">
+                      <p className="text-sm font-black" style={{ color: th.titleColor }}>「{poll.question}」を削除しますか？</p>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
+                          {isDeleting ? '削除中...' : '削除する'}
+                        </button>
+                        <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ background: th.cancelBg, color: th.cancelText, border: '1.5px solid #000' }}>
+                          キャンセル
+                        </button>
                       </div>
-                    ) : (
-                      <div className="px-5 py-4 flex items-start gap-3">
-                        <span className="text-sm font-black flex-shrink-0 mt-0.5 flex items-center justify-center" style={{ color: th.numText, background: th.numBg, width: '24px', height: '24px', minWidth: '24px' }}>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 px-2 py-1">
+                      <Link href={`/insho/poll/${poll.id}`} className="flex-1 min-w-0 flex items-start gap-3">
+                        <span className="text-base font-black flex-shrink-0 flex items-center justify-center" style={{ border: '2px solid #000', width: '28px', height: '28px', color: th.titleColor }}>
                           {i + 1}
                         </span>
-                        <Link href={`/insho/poll/${poll.id}`} className="flex-1 min-w-0">
-                          <p className="font-black text-base leading-snug" style={{ color: th.titleColor }}>{poll.question}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <p className="text-xs" style={{ color: th.mutedColor }}>{new Date(poll.created_at).toLocaleString('ja-JP')}</p>
+                        <div className="min-w-0">
+                          <p className="font-black text-base leading-snug break-words" style={{ color: th.titleColor }}>{poll.question}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <p className="text-xs font-bold" style={{ color: th.mutedColor }}>{new Date(poll.created_at).toLocaleString('ja-JP')}</p>
                             {hasVoted && (
-                              <span className="text-xs font-black px-2 py-0.5 flex-shrink-0" style={{ background: th.votedBg, border: `1px solid ${th.votedBorder}`, color: th.votedText }}>
-                                ✓ 投票済み
-                              </span>
+                              <span className="text-xs font-black px-2 py-0.5" style={{ background: th.votedBg, color: th.votedText }}>✓ 投票済み</span>
                             )}
                           </div>
-                        </Link>
-                        {isAdmin && (
-                          <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                            <Link href={`/insho/edit/${poll.id}`} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="編集">✏️</Link>
-                            <button onClick={() => setConfirmDeleteId(poll.id)} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="削除">🗑️</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      </Link>
+                      {isAdmin && (
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Link href={`/insho/edit/${poll.id}`} className="flex items-center justify-center hover:opacity-60 transition-opacity" style={sideButtonStyle} title="編集" aria-label="編集">✏️</Link>
+                          <button onClick={() => setConfirmDeleteId(poll.id)} className="flex items-center justify-center hover:opacity-60 transition-opacity" style={sideButtonStyle} title="削除" aria-label="削除">🗑️</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })}
@@ -220,23 +205,47 @@ export default function InshoPage() {
         )}
       </main>
 
-      {/* フローティングメニュー */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2">
+      {/* 右下: その他のメニュー（⚙）と、新しい分割印象投票の作成（＋・誰でも作成できる） */}
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
         {floatingMenuOpen && (
-          <div className="flex flex-col items-end gap-2 mb-1">
-            {isAdmin && (
-              <button onClick={handleLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-                <span>👤</span>管理者ログアウト
+          <div className="flex flex-col items-end gap-2">
+            {isAdmin && polls.length > 0 && (
+              <button onClick={() => { setFloatingMenuOpen(false); handleExportAll() }} disabled={exporting} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap disabled:opacity-50" style={{ background: th.menuBg, color: th.menuPrimary, border: `1px solid ${th.menuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>📥</span>{exporting ? '出力中...' : '全結果をCSVで出力'}
               </button>
             )}
-            <button onClick={handleSiteLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuDanger, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+            {isAdmin ? (
+              <button onClick={handleLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.menuBg, color: th.menuPrimary, border: `1px solid ${th.menuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>👤</span>管理者ログアウト
+              </button>
+            ) : (
+              <Link href="/admin/login" className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.menuBg, color: th.menuPrimary, border: `1px solid ${th.menuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>👤</span>管理者ログイン
+              </Link>
+            )}
+            <button onClick={handleSiteLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.menuBg, color: th.menuDanger, border: `1px solid ${th.menuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
               <span>🚪</span>ログアウト
             </button>
           </div>
         )}
-        <button onClick={() => setFloatingMenuOpen((v) => !v)} className="w-12 h-12 text-xl hover:opacity-80 transition-opacity flex items-center justify-center" style={{ background: th.fabBg, color: th.fabText, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+        <button
+          onClick={() => setFloatingMenuOpen((v) => !v)}
+          className="w-10 h-10 mr-3 rounded-full text-base hover:opacity-80 transition-opacity flex items-center justify-center"
+          style={{ background: th.menuBg, border: `2px solid ${th.fabBg}`, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+          title="メニュー"
+          aria-label="メニュー"
+        >
           {floatingMenuOpen ? '✕' : '⚙️'}
         </button>
+        <Link
+          href="/insho/create"
+          className="w-16 h-16 rounded-full flex items-center justify-center text-4xl font-light hover:opacity-90 transition-opacity"
+          style={{ background: th.fabBg, color: th.fabText, border: `2px solid ${th.fabBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}
+          title="新しい分割印象投票を作成"
+          aria-label="新しい分割印象投票を作成"
+        >
+          +
+        </Link>
       </div>
     </div>
   )

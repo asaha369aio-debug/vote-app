@@ -177,47 +177,48 @@ export default function EditInsho() {
   return (
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
+        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center gap-3">
           <Link href="/insho" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 戻る</Link>
           <span className="text-black/40 font-bold">|</span>
           <h1 className="text-xl font-black text-black">分割印象投票を編集</h1>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-8">
-        <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6 space-y-6">
+      <main className="max-w-xl mx-auto px-3 py-4">
+        <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-4 space-y-4">
 
           {/* クイック入力パレット */}
-          <div style={{ background: '#ffe600', border: '2px solid #000000' }} className="p-4">
-            <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-              <p className="text-sm font-black text-black">⚡ クイック入力</p>
-              <div className="flex items-center gap-3">
+          <div style={{ background: '#ffe600', border: '2px solid #000000' }} className="p-3">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <p className="text-sm font-black text-black whitespace-nowrap">⚡ クイック入力</p>
+              <div className="flex items-center justify-end gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={toggleKeyboardOff}
                   style={{ background: keyboardOff ? '#ff2200' : '#ffffff', color: keyboardOff ? '#ffffff' : '#000000', border: '1.5px solid #000000' }}
-                  className="text-xs font-black px-2 py-1 transition-opacity hover:opacity-80"
-                  title="端末のキーボードが出ないようにします"
+                  className="text-xs font-black px-1.5 py-0.5 whitespace-nowrap transition-opacity hover:opacity-80"
+                  title="キーボード: ONで端末のキーボードを表示、OFFで出さない"
                 >
-                  ⌨️ キーボード: {keyboardOff ? 'OFF' : 'ON'}
+                  ⌨️ {keyboardOff ? 'OFF' : 'ON'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteMode((v) => !v)}
                   style={{ background: deleteMode ? '#ff2200' : '#ffffff', color: deleteMode ? '#ffffff' : '#000000', border: '1.5px solid #000000' }}
-                  className="text-xs font-black px-2 py-1 transition-opacity hover:opacity-80"
-                  title="ONの間はワードを押すと削除されます"
+                  className="text-xs font-black px-1.5 py-0.5 whitespace-nowrap transition-opacity hover:opacity-80"
+                  title="削除モード: ONの間はワードを押すと削除されます"
                 >
-                  🗑️ 削除モード: {deleteMode ? 'ON' : 'OFF'}
+                  🗑️ {deleteMode ? 'ON' : 'OFF'}
                 </button>
-                <button type="button" onClick={() => setShowAddWord((v) => !v)} style={{ color: '#0033cc' }} className="text-xs font-black hover:opacity-60 transition-opacity">
-                  {showAddWord ? 'キャンセル' : '＋ ワードを追加'}
+                <button type="button" onClick={() => setShowAddWord((v) => !v)}
+                  title="ワードを追加" style={{ color: '#0033cc' }} className="text-xs font-black whitespace-nowrap hover:opacity-60 transition-opacity">
+                  {showAddWord ? 'キャンセル' : '＋ 追加'}
                 </button>
               </div>
             </div>
 
             {showAddWord && (
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   value={newWord}
@@ -234,7 +235,7 @@ export default function EditInsho() {
             {quickWords.length === 0 ? (
               <p className="text-sm text-black/50">ワードがありません。追加してください。</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {quickWords.map((w) => (
                   <button
                     key={w.id}
@@ -245,7 +246,7 @@ export default function EditInsho() {
                       background: deleteMode ? '#ffffff' : (focusedField ? '#000000' : '#ffffff'),
                       color: deleteMode ? '#ff2200' : (focusedField ? '#ffe600' : '#000000'),
                     }}
-                    className="text-sm px-3 py-1 font-bold transition-all"
+                    className="text-sm px-2 py-0.5 font-bold transition-all"
                   >
                     {deleteMode ? '🗑️ ' : ''}{w.word}
                   </button>
@@ -255,15 +256,15 @@ export default function EditInsho() {
             {deleteMode ? (
               <p className="text-xs font-bold mt-2" style={{ color: '#ff2200' }}>削除モード中: ワードを押すと削除されます</p>
             ) : !focusedField && (
-              <p className="text-xs text-black/40 mt-2">入力欄をクリックしてからワードを押すと入力されます</p>
+              <p className="text-black/40 mt-1 leading-none" style={{ fontSize: '9px' }}>入力欄をクリックしてからワードを押すと入力されます</p>
             )}
           </div>
 
           {/* 編集フォーム */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {!isLegacy && (
               <div>
-                <label className="block text-sm font-black text-black mb-2">🏷️ タイトル（一覧に表示されます）</label>
+                <label className="block text-sm font-black text-black mb-1">🏷️ タイトル（一覧に表示されます）</label>
                 <div className="flex gap-2">
                   <input
                     ref={titleRef}
@@ -272,7 +273,7 @@ export default function EditInsho() {
                     onChange={(e) => setTitle(e.target.value)}
                     onFocus={() => setFocusedField('title')}
                     style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
-                    className="flex-1 px-4 py-3 focus:outline-none"
+                    className="flex-1 px-3 py-2 focus:outline-none"
                     readOnly={keyboardOff}
                     inputMode={keyboardOff ? 'none' : 'text'}
                     required
@@ -289,9 +290,9 @@ export default function EditInsho() {
             )}
 
             {questions.map((q, qi) => (
-              <div key={q.id} className="p-4 space-y-4" style={{ background: '#ffffff', border: '2px solid #000000' }}>
+              <div key={q.id} className="p-3 space-y-3" style={{ background: '#ffffff', border: '2px solid #000000' }}>
                 <div>
-                  <label className="block text-sm font-black text-black mb-2">📝 質問{questions.length > 1 ? qi + 1 : ''}</label>
+                  <label className="block text-sm font-black text-black mb-1">📝 質問{questions.length > 1 ? qi + 1 : ''}</label>
                   <div className="flex gap-2">
                     <input
                       ref={(el) => { questionRefs.current[qi] = el }}
@@ -300,7 +301,7 @@ export default function EditInsho() {
                       onChange={(e) => updateQuestion(qi, e.target.value)}
                       onFocus={() => setFocusedField(`question-${qi}`)}
                       style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
-                      className="flex-1 px-4 py-3 focus:outline-none"
+                      className="flex-1 px-3 py-2 focus:outline-none"
                       readOnly={keyboardOff}
                       inputMode={keyboardOff ? 'none' : 'text'}
                       required
@@ -312,8 +313,8 @@ export default function EditInsho() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-black text-black mb-2">🎯 選択肢</label>
-                  <div className="space-y-3">
+                  <label className="block text-sm font-black text-black mb-1">🎯 選択肢</label>
+                  <div className="space-y-2">
                     {q.options.map((opt, i) => (
                       <div key={i} className="flex gap-2 items-center">
                         <span className="w-5 h-5 flex-shrink-0" style={{ background: ACCENTS[i % 4] }} />
@@ -325,7 +326,7 @@ export default function EditInsho() {
                           onFocus={() => setFocusedField(`option-${qi}-${i}`)}
                           placeholder={`選択肢 ${i + 1}`}
                           style={{ border: `2px solid ${ACCENTS[i % 4]}`, background: '#ffffff', color: '#000000' }}
-                          className="flex-1 px-4 py-2 focus:outline-none"
+                          className="flex-1 px-3 py-1.5 focus:outline-none"
                           readOnly={keyboardOff}
                           inputMode={keyboardOff ? 'none' : 'text'}
                         />
@@ -338,12 +339,12 @@ export default function EditInsho() {
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={() => addOption(qi)} style={{ color: '#0033cc' }} className="mt-3 text-sm font-black hover:opacity-60 transition-opacity">＋ 選択肢を追加</button>
+                  <button type="button" onClick={() => addOption(qi)} style={{ color: '#0033cc' }} className="mt-2 text-sm font-black hover:opacity-60 transition-opacity">＋ 選択肢を追加</button>
                 </div>
               </div>
             ))}
 
-            <button type="submit" disabled={loading} style={{ background: '#000000', color: '#ffe600' }} className="w-full font-black py-3 hover:opacity-80 transition-opacity disabled:opacity-50 text-lg">
+            <button type="submit" disabled={loading} style={{ background: '#000000', color: '#ffe600' }} className="w-full font-black py-2.5 hover:opacity-80 transition-opacity disabled:opacity-50 text-lg">
               {loading ? '保存中...' : '💾 変更を保存する'}
             </button>
           </form>

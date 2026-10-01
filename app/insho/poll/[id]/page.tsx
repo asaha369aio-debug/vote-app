@@ -437,22 +437,22 @@ export default function InshoPollPage() {
   return (
     <div className="min-h-screen" style={{ background: '#ffe600' }}>
       <header style={{ background: '#ffe600', borderBottom: '3px solid #000000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
+        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center gap-3">
           <Link href="/insho" className="font-black text-black hover:opacity-60 transition-opacity text-sm">← 一覧</Link>
           <span className="text-black/40 font-bold">|</span>
           <span className="font-black text-black truncate">{item.question}</span>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-8">
-        <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-6">
-          <h1 className="text-2xl font-black text-black mb-2">{item.question}</h1>
+      <main className="max-w-xl mx-auto px-3 py-4">
+        <div style={{ background: '#ffffff', border: '2.5px solid #000000' }} className="p-4">
+          <h1 className="text-xl font-black text-black mb-1">{item.question}</h1>
           {!voted && (
-            <p className="text-sm font-bold text-black/60 mb-6">質問ごとに持ち票 {totalPoints} 票を配分してください</p>
+            <p className="text-sm font-bold text-black/60 mb-3">質問ごとに持ち票 {totalPoints} 票を配分してください</p>
           )}
 
           {/* 質問ごとの配分（1段階目） */}
-          <div className="space-y-6 mb-6">
+          <div className="space-y-4 mb-4">
             {questions.map((q, qi) => {
               const remaining = remainingOf(q.id)
               return (
@@ -473,7 +473,7 @@ export default function InshoPollPage() {
                       const color = BAR_COLORS[i % BAR_COLORS.length]
                       const n = allocation[q.id]?.[opt.id] ?? 0
                       return (
-                        <div key={opt.id} className="flex items-center gap-3 px-4 py-3" style={{ border: `2.5px solid ${color}`, background: n > 0 ? `${color}1a` : '#ffffff' }}>
+                        <div key={opt.id} className="flex items-center gap-3 px-3 py-2" style={{ border: `2.5px solid ${color}`, background: n > 0 ? `${color}1a` : '#ffffff' }}>
                           <span className="w-4 h-4 flex-shrink-0" style={{ background: color }} />
                           <span className="text-black font-bold flex-1">{opt.text}</span>
                           {!voted && !confirming ? (
@@ -481,7 +481,7 @@ export default function InshoPollPage() {
                               <button
                                 onClick={() => changeAllocation(q.id, opt.id, -1)}
                                 disabled={n === 0}
-                                className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                                className="w-8 h-8 font-black text-lg transition-opacity hover:opacity-80 disabled:opacity-30"
                                 style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
                               >
                                 −
@@ -490,7 +490,7 @@ export default function InshoPollPage() {
                               <button
                                 onClick={() => changeAllocation(q.id, opt.id, 1)}
                                 disabled={remaining === 0}
-                                className="w-9 h-9 font-black text-xl transition-opacity hover:opacity-80 disabled:opacity-30"
+                                className="w-8 h-8 font-black text-lg transition-opacity hover:opacity-80 disabled:opacity-30"
                                 style={{ background: color, color: '#ffffff', border: '2px solid #000000' }}
                               >
                                 ＋
@@ -510,7 +510,7 @@ export default function InshoPollPage() {
 
           {/* 配分を確定へ進むボタン */}
           {!voted && !confirming && (
-            <div className="mb-8 text-center">
+            <div className="mb-4 text-center">
               <button
                 onClick={() => setConfirming(true)}
                 disabled={!allAllocated}
@@ -524,7 +524,7 @@ export default function InshoPollPage() {
 
           {/* 確認（2段階目） */}
           {!voted && confirming && (
-            <div className="mb-8 p-4 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
+            <div className="mb-4 p-3 text-center" style={{ background: '#f5f5f5', border: '2.5px solid #000000' }}>
               <p className="text-black font-bold mb-3">この配分で投票します。よろしいですか？</p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -559,7 +559,7 @@ export default function InshoPollPage() {
 
           {/* 管理者向け投票者一覧・結果ボタン（選択中の質問について表示） */}
           {isAdmin && (
-            <div className="mt-6 pt-6" style={{ borderTop: '2px solid #000000' }}>
+            <div className="mt-4 pt-4" style={{ borderTop: '2px solid #000000' }}>
               {questions.length > 1 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {questions.map((q, qi) => (

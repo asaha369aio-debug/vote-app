@@ -184,7 +184,7 @@ export default function Home() {
   return (
     <div className="min-h-screen" style={{ background: th.pageBg }}>
       <header style={{ background: th.pageBg, borderBottom: '3px solid #000000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center justify-between">
           <Image src="/qol_logo.png" alt="QOL" width={120} height={40} style={{ objectFit: 'contain' }} priority />
           <div className="flex items-center gap-2">
             {editingName ? (
@@ -202,12 +202,12 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-2xl mx-auto px-3 py-4 space-y-4">
         {/* 管理者: 機能の表示/非表示コントロール */}
         {isAdmin && (
           <div style={{ background: '#000', border: '2.5px solid #000' }} className="p-4">
             <p className="text-xs font-black mb-3" style={{ color: '#ffe600', letterSpacing: '0.1em' }}>🔧 管理者: 機能の表示設定</p>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               {TOGGLEABLE_KEYS.map((key) => {
                 const f = FEATURES.find((f) => f.key === key)!
                 const enabled = pendingFlags[key] !== false
@@ -220,7 +220,7 @@ export default function Home() {
                       background: enabled ? f.accent : '#333',
                       color: '#fff',
                       border: `2px solid ${changed ? '#ffe600' : (enabled ? f.accent : '#555')}`,
-                      padding: '8px 20px',
+                      padding: '5px 12px',
                       fontWeight: 900,
                       fontSize: '0.9rem',
                       transition: 'all 0.15s',
@@ -238,7 +238,7 @@ export default function Home() {
                   background: hasPendingChanges ? '#ffe600' : '#333',
                   color: hasPendingChanges ? '#000' : '#777',
                   border: '2px solid #ffe600',
-                  padding: '8px 20px',
+                  padding: '5px 12px',
                   fontWeight: 900,
                   fontSize: '0.9rem',
                 }}
@@ -262,20 +262,20 @@ export default function Home() {
 
               return isActive && isEnabled ? (
                 <Link key={f.key} href={f.href}>
-                  <div className="flex items-center gap-4 px-6 py-5 transition-opacity hover:opacity-80 cursor-pointer" style={{ background: th.cardBg, border: '2.5px solid #000', borderLeft: `8px solid ${f.accent}` }}>
-                    <span className="text-4xl flex-shrink-0">{f.icon}</span>
+                  <div className="flex items-center gap-3 px-4 py-3 transition-opacity hover:opacity-80 cursor-pointer" style={{ background: th.cardBg, border: '2.5px solid #000', borderLeft: `8px solid ${f.accent}` }}>
+                    <span className="text-3xl flex-shrink-0">{f.icon}</span>
                     <div className="flex-1">
-                      <p className="text-xl font-black" style={{ color: th.titleColor }}>{f.label}</p>
+                      <p className="text-lg font-black leading-tight" style={{ color: th.titleColor }}>{f.label}</p>
                       <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
                     </div>
                     <span className="text-2xl font-black" style={{ color: f.accent }}>→</span>
                   </div>
                 </Link>
               ) : (
-                <div key={f.key} className="flex items-center gap-4 px-6 py-5" style={{ background: th.cardBg, border: '2.5px solid #ccc', borderLeft: `8px solid #ccc`, opacity: dimmed ? 0.5 : 0.4 }}>
-                  <span className="text-4xl flex-shrink-0">{f.icon}</span>
+                <div key={f.key} className="flex items-center gap-3 px-4 py-3" style={{ background: th.cardBg, border: '2.5px solid #ccc', borderLeft: `8px solid #ccc`, opacity: dimmed ? 0.5 : 0.4 }}>
+                  <span className="text-3xl flex-shrink-0">{f.icon}</span>
                   <div className="flex-1">
-                    <p className="text-xl font-black" style={{ color: th.titleColor }}>{f.label}</p>
+                    <p className="text-lg font-black leading-tight" style={{ color: th.titleColor }}>{f.label}</p>
                     <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
                   </div>
                   <span className="text-xs font-black px-2 py-1" style={{ background: '#eee', color: '#999' }}>

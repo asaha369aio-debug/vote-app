@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { MAX_POINTS, MIN_POINTS, POINTS_DEFAULTS, fetchPoints, type PointsKind } from '@/lib/pointsSettings'
 
-type Props = { kind: PointsKind; label: string; note: string }
+type Props = { kind: PointsKind; label: string; note: string; variant?: 'default' | 'bar' }
 
 // 管理者が1人の持ち票を設定するパネル（一覧画面の上に表示）
-export default function PointsSettingPanel({ kind, label, note }: Props) {
+// variant="bar" は1行の帯（分割印象投票の一覧のデザイン）
+export default function PointsSettingPanel({ kind, label, note, variant = 'default' }: Props) {
   const [points, setPoints] = useState(POINTS_DEFAULTS[kind])
   const [input, setInput] = useState(String(POINTS_DEFAULTS[kind]))
   const [saving, setSaving] = useState(false)
@@ -35,8 +36,41 @@ export default function PointsSettingPanel({ kind, label, note }: Props) {
     }
   }
 
+  if (variant === 'bar') {
+    return (
+      <div
+        className="mb-3 px-3 py-2 flex items-center justify-center gap-2 flex-wrap"
+        style={{ background: '#3d3418', border: '2px solid #8a8060' }}
+        title={note}
+      >
+        <span className="text-sm font-black" style={{ color: '#ffffff' }}>{label}</span>
+        <span className="flex items-baseline gap-1">
+          <input
+            type="number"
+            min={MIN_POINTS}
+            max={MAX_POINTS}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            aria-label={label}
+            className="w-12 px-1 text-center font-black focus:outline-none"
+            style={{ background: 'transparent', color: '#ffffff', borderBottom: '2px solid #ffffff' }}
+          />
+          <span className="text-sm font-black" style={{ color: '#ffffff' }}>票</span>
+        </span>
+        <button
+          onClick={save}
+          disabled={saving || Number(input) === points}
+          className="text-sm font-black px-3 py-0.5 rounded transition-opacity hover:opacity-85 active:translate-y-px disabled:cursor-default"
+          style={{ background: '#ff2200', color: '#ffffff', border: '2px solid #ffffff', boxShadow: '0 2px 0 rgba(0,0,0,0.4)', opacity: saving ? 0.5 : 1 }}
+        >
+          {saving ? '保存中...' : '保存'}
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="mb-4 p-4 flex flex-wrap items-center gap-2" style={{ background: '#000000', border: '2.5px solid #000000' }}>
+    <div className="mb-3 p-3 flex flex-wrap items-center gap-2" style={{ background: '#000000', border: '2.5px solid #000000' }}>
       <span className="text-sm font-black" style={{ color: '#ffe600' }}>🔧 {label}</span>
       <input
         type="number"

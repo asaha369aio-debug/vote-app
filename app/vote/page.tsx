@@ -107,7 +107,7 @@ export default function VotePage() {
     <div className="min-h-screen" style={{ background: th.pageBg }}>
       {/* ヘッダー */}
       <header style={{ background: th.headerBg, borderBottom: '3px solid #000000' }}>
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* 機能選択へ戻る */}
             <Link href="/" className="font-black text-black hover:opacity-60 transition-opacity text-lg" title="機能選択へ戻る">←</Link>
@@ -132,9 +132,8 @@ export default function VotePage() {
                 <span>👤</span><span className="font-black">{voterName}</span><span className="text-xs opacity-40">✎</span>
               </button>
             )}
-            {isAdmin ? (
-              <Link href="/create" className="font-black px-4 py-1.5 text-sm hover:opacity-80 transition-opacity" style={{ background: th.primaryBg, color: th.primaryText }}>＋ 新しい最終投票</Link>
-            ) : (
+            {/* 新しい最終投票は右下の＋ボタンから作成する */}
+            {!isAdmin && (
               <Link href="/admin/login" className="text-sm px-3 py-1.5 hover:opacity-80 transition-opacity" style={{ border: '1px solid #000', borderRadius: '999px' }}>管理者ログイン</Link>
             )}
           </div>
@@ -142,21 +141,9 @@ export default function VotePage() {
       </header>
 
       {/* 投票リスト */}
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-3 py-4 pb-40">
         {isAdmin && (
           <PointsSettingPanel kind="vote" label="1人の持ち票" note="これから作成する最終投票に適用されます。作成済みの項目は作成時の票数のまま。1票なら1つを選ぶ投票です" />
-        )}
-        {isAdmin && polls.length > 0 && (
-          <div className="mb-4 text-right">
-            <button
-              onClick={handleExportAll}
-              disabled={exporting}
-              className="text-sm font-black px-4 py-1.5 transition-opacity hover:opacity-80 disabled:opacity-50"
-              style={{ background: '#ffffff', color: '#000000', border: '2px solid #000000' }}
-            >
-              {exporting ? '出力中...' : '📥 全結果をCSVで出力'}
-            </button>
-          </div>
         )}
         {polls.length === 0 ? (
           <div className="text-center py-20" style={{ color: th.mutedColor }}>
@@ -173,7 +160,7 @@ export default function VotePage() {
                 <li key={poll.id}>
                   <div style={cardStyle(i)}>
                     {isAdmin && isConfirming ? (
-                      <div className="px-5 py-4 flex items-center justify-between gap-3">
+                      <div className="px-3 py-2 flex items-center justify-between gap-3">
                         <p className="text-sm font-black" style={{ color: th.titleColor }}>この最終投票を削除しますか？</p>
                         <div className="flex gap-2 flex-shrink-0">
                           <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
@@ -185,7 +172,7 @@ export default function VotePage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="px-5 py-4 flex items-start gap-3">
+                      <div className="px-3 py-2 flex items-start gap-3">
                         <span className="text-sm font-black flex-shrink-0 mt-0.5 flex items-center justify-center" style={{ color: th.numText, background: th.numBg, width: '24px', height: '24px', minWidth: '24px' }}>
                           {i + 1}
                         </span>
@@ -216,10 +203,15 @@ export default function VotePage() {
         )}
       </main>
 
-      {/* フローティングメニュー */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2">
+      {/* フローティングメニュー（⚙）と、新しい最終投票の作成（＋・管理者のみ） */}
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
         {floatingMenuOpen && (
           <div className="flex flex-col items-end gap-2 mb-1">
+            {isAdmin && polls.length > 0 && (
+              <button onClick={() => { setFloatingMenuOpen(false); handleExportAll() }} disabled={exporting} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap disabled:opacity-50" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <span>📥</span>{exporting ? '出力中...' : '全結果をCSVで出力'}
+              </button>
+            )}
             {isAdmin && (
               <button onClick={handleLogout} className="flex items-center gap-2 font-black text-sm px-4 py-2.5 hover:opacity-80 whitespace-nowrap" style={{ background: th.fabMenuBg, color: th.fabMenuPrimary, border: `1px solid ${th.fabMenuBorder}`, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                 <span>👤</span>管理者ログアウト
@@ -233,6 +225,17 @@ export default function VotePage() {
         <button onClick={() => setFloatingMenuOpen((v) => !v)} className="w-12 h-12 text-xl hover:opacity-80 transition-opacity flex items-center justify-center" style={{ background: th.fabBg, color: th.fabText, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
           {floatingMenuOpen ? '✕' : '⚙️'}
         </button>
+        {isAdmin && (
+          <Link
+            href="/create"
+            className="w-16 h-16 rounded-full flex items-center justify-center text-4xl font-light hover:opacity-90 transition-opacity"
+            style={{ background: th.fabBg, color: th.fabText, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}
+            title="新しい最終投票を作成"
+            aria-label="新しい最終投票を作成"
+          >
+            +
+          </Link>
+        )}
       </div>
     </div>
   )
