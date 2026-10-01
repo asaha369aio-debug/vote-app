@@ -54,7 +54,6 @@ export default function InshoPollPage() {
   const [displayPercents, setDisplayPercents] = useState<number[]>([])
   const [showVoterList, setShowVoterList] = useState(false)
   const [animSeconds, setAnimSeconds] = useState(5)
-  const [fontKey, setFontKey] = useState<'system' | 'anton' | 'bebas' | 'noto' | 'mplus'>('system')
   // 0票バーを消して票ありバーで100%を埋める「再配置」フェーズ中はtransitionをなしにする
   const [collapsing, setCollapsing] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -68,14 +67,8 @@ export default function InshoPollPage() {
     try { localStorage.setItem('sfxOn', next ? '1' : '0') } catch {}
   }
 
-  const FONTS = [
-    { key: 'system', label: 'System',  family: 'system-ui, sans-serif' },
-    { key: 'anton',  label: 'Anton',   family: 'var(--font-anton), sans-serif' },
-    { key: 'bebas',  label: 'Bebas',   family: 'var(--font-bebas), sans-serif' },
-    { key: 'noto',   label: 'Noto JP', family: 'var(--font-noto), sans-serif' },
-    { key: 'mplus',  label: 'M PLUS',  family: 'var(--font-mplus), sans-serif' },
-  ] as const
-  const graphFont = FONTS.find(f => f.key === fontKey)?.family ?? 'system-ui'
+  // 結果発表のグラフのフォント
+  const graphFont = 'system-ui, sans-serif'
 
   const storageKey = `voted-${id}`
   const remainingOf = (questionId: string) =>
@@ -379,31 +372,6 @@ export default function InshoPollPage() {
               </button>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* 右下：フォント切替 */}
-      <div className="fixed bottom-24 right-6 flex flex-col items-end gap-1">
-        <span className="text-xs font-black" style={{ color: '#ffe600' }}>フォント</span>
-        <div className="flex gap-1">
-          {FONTS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFontKey(f.key)}
-              style={{
-                background: fontKey === f.key ? '#ffe600' : '#333333',
-                color: fontKey === f.key ? '#000000' : '#ffe600',
-                border: '1.5px solid #ffe600',
-                fontFamily: f.family,
-                padding: '3px 8px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
         </div>
       </div>
 

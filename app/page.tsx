@@ -261,12 +261,11 @@ export default function Home() {
               const dimmed = isAdmin && !isEnabled
 
               return isActive && isEnabled ? (
-                <Link key={f.key} href={f.href}>
+                <Link key={f.key} href={f.href} className="block">
                   <div className="flex items-center gap-3 px-4 py-3 transition-opacity hover:opacity-80 cursor-pointer" style={{ background: th.cardBg, border: '2.5px solid #000', borderLeft: `8px solid ${f.accent}` }}>
                     <span className="text-3xl flex-shrink-0">{f.icon}</span>
                     <div className="flex-1">
                       <p className="text-lg font-black leading-tight" style={{ color: th.titleColor }}>{f.label}</p>
-                      <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
                     </div>
                     <span className="text-2xl font-black" style={{ color: f.accent }}>→</span>
                   </div>
@@ -276,7 +275,6 @@ export default function Home() {
                   <span className="text-3xl flex-shrink-0">{f.icon}</span>
                   <div className="flex-1">
                     <p className="text-lg font-black leading-tight" style={{ color: th.titleColor }}>{f.label}</p>
-                    <p className="text-sm" style={{ color: th.mutedColor }}>{f.desc}</p>
                   </div>
                   <span className="text-xs font-black px-2 py-1" style={{ background: '#eee', color: '#999' }}>
                     {dimmed ? '非表示中' : '準備中'}

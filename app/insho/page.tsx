@@ -19,19 +19,22 @@ const th = {
   headerBorder: '#000000',
   namePillBg: '#fff2cc',
   cardBg: '#ffffff', cardBorder: '#000000',
-  titleColor: '#000000', mutedColor: '#222222',
-  votedBg: '#00aa44', votedText: '#ffffff',
+  titleColor: '#000000', mutedColor: '#444444',
+  accents: ['#ff2200', '#0033cc', '#00aa44', '#ff6600'],
+  numText: '#ffffff', numBg: '#000000',
+  votedBg: '#00aa44', votedBorder: '#000000', votedText: '#ffffff',
   dangerBg: '#ff2200', dangerText: '#ffffff',
   cancelBg: '#ffffff', cancelText: '#000000',
   fabBg: '#3d3418', fabText: '#ffffff', fabBorder: '#8a8060',
   menuBg: '#ffffff', menuBorder: '#000000', menuPrimary: '#000000', menuDanger: '#ff2200',
 }
 
-// アイコンボタン（編集・削除）
-const sideButtonStyle: React.CSSProperties = {
-  width: '34px',
-  fontSize: '1.1rem',
-}
+// 各カード（最終投票の一覧と同じデザイン: 左端を色分け）
+const cardStyle = (i: number): React.CSSProperties => ({
+  background: th.cardBg,
+  border: '2.5px solid #000000',
+  borderLeft: `6px solid ${th.accents[i % 4]}`,
+})
 
 export default function InshoPage() {
   const router = useRouter()
@@ -116,7 +119,7 @@ export default function InshoPage() {
           <div className="flex-1 min-w-0 flex justify-center">
             {editingName ? (
               <form onSubmit={handleNameEdit} className="flex items-center gap-1 min-w-0">
-                <input type="text" value={editNameInput} onChange={(e) => setEditNameInput(e.target.value)} className="w-24 text-sm px-2 py-1 focus:outline-none" style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg }} placeholder="新しい名前" autoFocus maxLength={20} />
+                <input type="text" value={editNameInput} onChange={(e) => setEditNameInput(e.target.value)} className="w-24 text-sm px-2 py-1 focus:outline-none" style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg, color: '#000000' }} placeholder="新しい名前" autoFocus maxLength={20} />
                 <button type="submit" className="text-xs font-black px-2 py-1 hover:opacity-80" style={{ background: 'rgba(0,0,0,0.12)' }}>変更</button>
                 <button type="button" onClick={() => setEditingName(false)} className="text-xs px-1 hover:opacity-80">✕</button>
               </form>
@@ -124,7 +127,7 @@ export default function InshoPage() {
               <button
                 onClick={() => { setEditNameInput(voterName); setEditingName(true) }}
                 className="max-w-full truncate text-sm font-black px-3 py-1 hover:opacity-70 transition-opacity"
-                style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg }}
+                style={{ border: '1.5px solid #000', borderRadius: '999px', background: th.namePillBg, color: '#000000' }}
                 title="名前を変更"
               >
                 {voterName}
@@ -155,49 +158,51 @@ export default function InshoPage() {
             <p className="text-sm mt-2">右下の＋から作成できます</p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {polls.map((poll, i) => {
               const hasVoted = !!localStorage.getItem(`voted-${poll.id}`)
               const isConfirming = confirmDeleteId === poll.id
               const isDeleting = deletingId === poll.id
               return (
-                <li key={poll.id} style={{ background: th.cardBg, border: `3px solid ${th.cardBorder}` }}>
-                  {isAdmin && isConfirming ? (
-                    <div className="px-4 py-4 flex items-center justify-between gap-3">
-                      <p className="text-sm font-black" style={{ color: th.titleColor }}>「{poll.question}」を削除しますか？</p>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
-                          {isDeleting ? '削除中...' : '削除する'}
-                        </button>
-                        <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ background: th.cancelBg, color: th.cancelText, border: '1.5px solid #000' }}>
-                          キャンセル
-                        </button>
+                <li key={poll.id}>
+                  <div style={cardStyle(i)}>
+                    {isAdmin && isConfirming ? (
+                      <div className="px-3 py-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-black" style={{ color: th.titleColor }}>この分割印象投票を削除しますか？</p>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button onClick={() => handleDeletePoll(poll.id)} disabled={isDeleting} className="text-xs font-black px-3 py-1.5 hover:opacity-80 disabled:opacity-50" style={{ background: th.dangerBg, color: th.dangerText }}>
+                            {isDeleting ? '削除中...' : '削除する'}
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-black px-3 py-1.5 hover:opacity-80" style={{ background: th.cancelBg, color: th.cancelText, border: '1.5px solid #000' }}>
+                            キャンセル
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 px-2 py-1">
-                      <Link href={`/insho/poll/${poll.id}`} className="flex-1 min-w-0 flex items-start gap-3">
-                        <span className="text-base font-black flex-shrink-0 flex items-center justify-center" style={{ border: '2px solid #000', width: '28px', height: '28px', color: th.titleColor }}>
+                    ) : (
+                      <div className="px-3 py-2 flex items-start gap-3">
+                        <span className="text-sm font-black flex-shrink-0 mt-0.5 flex items-center justify-center" style={{ color: th.numText, background: th.numBg, width: '24px', height: '24px', minWidth: '24px' }}>
                           {i + 1}
                         </span>
-                        <div className="min-w-0">
-                          <p className="font-black text-base leading-snug break-words" style={{ color: th.titleColor }}>{poll.question}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <p className="text-xs font-bold" style={{ color: th.mutedColor }}>{new Date(poll.created_at).toLocaleString('ja-JP')}</p>
+                        <Link href={`/insho/poll/${poll.id}`} className="flex-1 min-w-0">
+                          <p className="font-black text-base leading-snug" style={{ color: th.titleColor }}>{poll.question}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <p className="text-xs" style={{ color: th.mutedColor }}>{new Date(poll.created_at).toLocaleString('ja-JP')}</p>
                             {hasVoted && (
-                              <span className="text-xs font-black px-2 py-0.5" style={{ background: th.votedBg, color: th.votedText }}>✓ 投票済み</span>
+                              <span className="text-xs font-black px-2 py-0.5 flex-shrink-0" style={{ background: th.votedBg, border: `1px solid ${th.votedBorder}`, color: th.votedText }}>
+                                ✓ 投票済み
+                              </span>
                             )}
                           </div>
-                        </div>
-                      </Link>
-                      {isAdmin && (
-                        <div className="flex gap-1 flex-shrink-0">
-                          <Link href={`/insho/edit/${poll.id}`} className="flex items-center justify-center hover:opacity-60 transition-opacity" style={sideButtonStyle} title="編集" aria-label="編集">✏️</Link>
-                          <button onClick={() => setConfirmDeleteId(poll.id)} className="flex items-center justify-center hover:opacity-60 transition-opacity" style={sideButtonStyle} title="削除" aria-label="削除">🗑️</button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        </Link>
+                        {isAdmin && (
+                          <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                            <Link href={`/insho/edit/${poll.id}`} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="編集" aria-label="編集">✏️</Link>
+                            <button onClick={() => setConfirmDeleteId(poll.id)} className="hover:opacity-60 transition-opacity text-base" style={{ color: th.mutedColor }} title="削除" aria-label="削除">🗑️</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </li>
               )
             })}
