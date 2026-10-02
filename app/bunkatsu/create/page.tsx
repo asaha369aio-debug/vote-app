@@ -227,7 +227,7 @@ export default function CreateBunkatsu() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   onFocus={() => setFocusedField('question')}
-                  placeholder="例: 好きなプログラミング言語は？"
+                  placeholder="タイトルを記入"
                   style={{ border: '2px solid #000000', background: '#ffffff', color: '#000000' }}
                   className="flex-1 px-4 py-3 focus:outline-none"
                   readOnly={keyboardOff}
