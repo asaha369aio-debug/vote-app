@@ -155,7 +155,7 @@ export default function InshoPage() {
           <div className="text-center py-20" style={{ color: th.mutedColor }}>
             <p className="text-5xl mb-4">📭</p>
             <p className="text-lg font-black">まだ分割印象投票がありません</p>
-            <p className="text-sm mt-2">右下の＋から作成できます</p>
+            {isAdmin && <p className="text-sm mt-2">右下の＋から作成できます</p>}
           </div>
         ) : (
           <ul className="space-y-3">
@@ -210,7 +210,7 @@ export default function InshoPage() {
         )}
       </main>
 
-      {/* 右下: その他のメニュー（⚙）と、新しい分割印象投票の作成（＋・誰でも作成できる） */}
+      {/* 右下: その他のメニュー（⚙）と、新しい分割印象投票の作成（＋・管理者のみ） */}
       <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
         {floatingMenuOpen && (
           <div className="flex flex-col items-end gap-2">
@@ -242,6 +242,7 @@ export default function InshoPage() {
         >
           {floatingMenuOpen ? '✕' : '⚙️'}
         </button>
+        {isAdmin && (
         <Link
           href="/insho/create"
           className="w-16 h-16 rounded-full flex items-center justify-center text-4xl font-light hover:opacity-90 transition-opacity"
@@ -251,6 +252,7 @@ export default function InshoPage() {
         >
           +
         </Link>
+        )}
       </div>
     </div>
   )

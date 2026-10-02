@@ -38,8 +38,9 @@ export default function CreateInsho() {
   const optionRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
-    // 分割印象投票は誰でも作成できる（クイック入力ワードの追加・削除のみ管理者）
-    setIsAdmin(localStorage.getItem('isAdmin') === '1')
+    // 分割印象投票の作成は管理者のみ
+    if (localStorage.getItem('isAdmin') !== '1') { router.replace('/insho'); return }
+    setIsAdmin(true)
     setKeyboardOff(localStorage.getItem(KEYBOARD_OFF_KEY) === '1')
     supabase.from('quick_words').select('*').order('created_at').then(({ data }) => setQuickWords(data ?? []))
 

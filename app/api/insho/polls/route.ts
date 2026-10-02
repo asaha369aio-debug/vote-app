@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isAdminRequest } from '@/lib/adminSession'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { INSHO_CATEGORY, inshoQuestionCategory } from '@/lib/insho'
 import { deletePolls } from '@/lib/pollUpdate'
 import { savePointsSnapshot } from '@/lib/pointsSnapshot'
 
-// 分割印象投票は管理者以外も作成できる。
+// 分割印象投票の作成は管理者のみ。
 // タイトル（一覧に出る項目）と、質問・選択肢の組を複数受け取り、1つの項目としてまとめて作成する
 const MAX_TITLE_LENGTH = 200
 const MAX_QUESTION_LENGTH = 200
@@ -28,6 +29,8 @@ function parsePolls(value: unknown): PollInput[] | null {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isAdminRequest(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
   const { title, polls: input } = await req.json()
   const trimmedTitle = typeof title === 'string' ? title.trim() : ''
   const polls = parsePolls(input)
