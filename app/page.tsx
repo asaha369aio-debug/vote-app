@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { SITE_PASSWORD_MAX_LENGTH, SITE_PASSWORD_MIN_LENGTH, isValidSitePassword } from '@/lib/sitePasswordRules'
 
 const VOTER_NAME_KEY = 'voterName'
 const SITE_AUTH_KEY = 'siteAuth'
@@ -45,12 +46,14 @@ export default function Home() {
   const [editNameInput, setEditNameInput] = useState('')
   const [siteAuthed, setSiteAuthed] = useState<boolean | null>(null)
   const [sitePasswordInput, setSitePasswordInput] = useState('')
-  const [sitePasswordError, setSitePasswordError] = useState(false)
+  const [sitePasswordError, setSitePasswordError] = useState<string | null>(null)
   const [sitePasswordLoading, setSitePasswordLoading] = useState(false)
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
   const [flags, setFlags] = useState<Record<string, boolean>>({})  // 全ユーザーに適用中の表示フラグ
   const [pendingFlags, setPendingFlags] = useState<Record<string, boolean>>({})  // 管理者が編集中（未確定）の表示フラグ
   const [savingFlags, setSavingFlags] = useState(false)
+  const [newSitePassword, setNewSitePassword] = useState('')  // 管理者が設定する新しい一般パスワード
+  const [savingSitePassword, setSavingSitePassword] = useState(false)
 
   useEffect(() => {
     const authed = sessionStorage.getItem(SITE_AUTH_KEY) === '1'
@@ -112,10 +115,33 @@ export default function Home() {
   }
 
   const handleSitePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSitePasswordLoading(true); setSitePasswordError(false)
+    e.preventDefault(); setSitePasswordLoading(true); setSitePasswordError(null)
     const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: sitePasswordInput }) })
-    if (res.ok) { sessionStorage.setItem(SITE_AUTH_KEY, '1'); setSiteAuthed(true) } else { setSitePasswordError(true) }
+    if (res.ok) { sessionStorage.setItem(SITE_AUTH_KEY, '1'); setSiteAuthed(true) }
+    else { setSitePasswordError(res.status === 401 ? 'パスワードが間違っています' : '確認に失敗しました。時間をおいて再度お試しください') }
     setSitePasswordLoading(false)
+  }
+  const saveSitePassword = async () => {
+    const password = newSitePassword
+    if (!isValidSitePassword(password)) {
+      alert(`一般パスワードは${SITE_PASSWORD_MIN_LENGTH}〜${SITE_PASSWORD_MAX_LENGTH}文字で、前後に空白を含めずに入力してください`)
+      return
+    }
+    if (!confirm(`一般パスワードを「${password}」に変更しますか？
+（入場済みの人はそのまま利用できます）`)) return
+    setSavingSitePassword(true)
+    const res = await fetch('/api/admin/site-password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    setSavingSitePassword(false)
+    if (res.ok) {
+      setNewSitePassword('')
+      alert('一般パスワードを変更しました')
+    } else {
+      alert(res.status === 401 ? '管理者セッションが切れています。管理者ログインをやり直してください。' : '変更に失敗しました。')
+    }
   }
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault(); const trimmed = nameInput.trim(); if (!trimmed) return
@@ -145,7 +171,7 @@ export default function Home() {
           <p className="text-sm text-center mb-6" style={{ color: th.mutedColor }}>このサイトへのアクセスにはパスワードが必要です</p>
           <form onSubmit={handleSitePasswordSubmit} className="space-y-4">
             <input type="password" value={sitePasswordInput} onChange={(e) => setSitePasswordInput(e.target.value)} placeholder="パスワードを入力してください" style={inputStyle} autoFocus required />
-            {sitePasswordError && <p className="text-sm text-center font-bold" style={{ color: th.dangerBg }}>✗ パスワードが間違っています</p>}
+            {sitePasswordError && <p className="text-sm text-center font-bold" style={{ color: th.dangerBg }}>✗ {sitePasswordError}</p>}
             <button type="submit" disabled={sitePasswordLoading} className="w-full font-black py-3 transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: th.primaryBg, color: th.primaryText, fontSize: '1rem' }}>
               {sitePasswordLoading ? '確認中...' : '入場する'}
             </button>
@@ -247,6 +273,29 @@ export default function Home() {
                 {savingFlags ? '反映中...' : '✅ 確定して全員に反映'}
               </button>
             </div>
+            <p className="text-xs font-black mt-4 mb-2" style={{ color: '#ffe600', letterSpacing: '0.1em' }}>🔑 管理者: 一般パスワードの変更</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={newSitePassword}
+                onChange={(e) => setNewSitePassword(e.target.value)}
+                placeholder="新しいパスワード"
+                autoComplete="off"
+                maxLength={SITE_PASSWORD_MAX_LENGTH}
+                aria-label="新しい一般パスワード"
+                className="flex-1 min-w-0 px-2 py-1 font-black focus:outline-none"
+                style={{ background: '#ffffff', color: '#000000', border: '2px solid #ffe600' }}
+              />
+              <button
+                onClick={saveSitePassword}
+                disabled={!newSitePassword || savingSitePassword}
+                className="font-black px-3 py-1 transition-opacity hover:opacity-80 disabled:opacity-40"
+                style={{ background: '#ffe600', color: '#000000', fontSize: '0.9rem' }}
+              >
+                {savingSitePassword ? '変更中...' : '変更'}
+              </button>
+            </div>
+            <p className="text-xs mt-1" style={{ color: '#aaaaaa' }}>現在のパスワードは表示されません（{SITE_PASSWORD_MIN_LENGTH}〜{SITE_PASSWORD_MAX_LENGTH}文字）</p>
           </div>
         )}
 
